@@ -1,0 +1,16 @@
+FROM node:18-alpine
+
+# アプリケーションディレクトリの設定
+WORKDIR /app/
+
+# パッケージ定義ファイルをコピー
+COPY package*.json ./
+
+# 依存関係のインストール
+RUN npm install
+
+# アプリケーションのソースコードをコピー
+COPY . .
+
+# 開発時のコマンドを指定
+CMD ["npm", "run", "start"]
