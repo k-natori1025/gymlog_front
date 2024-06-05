@@ -1,5 +1,4 @@
 import { initializeApp } from "firebase/app";
-import { getAnalytics } from "firebase/analytics";
 import { getAuth } from "firebase/auth";
 
 const firebaseConfig = {
@@ -14,5 +13,10 @@ const firebaseConfig = {
 
 // Initialize Firebase
 const app = initializeApp(firebaseConfig);
-const analytics = getAnalytics(app);
 export const auth = getAuth(app);
+
+// クライアントサイドでのみ Analytics を初期化する
+if (typeof window !== "undefined") {
+  const { getAnalytics } = await import("firebase/analytics");
+  const analytics = getAnalytics(app);
+}
