@@ -4,8 +4,9 @@ import React, { FC, memo, useState } from 'react'
 import { PrimaryButton } from '@/app/components/atoms/button/PrimaryButton'
 import { Box, Button, Divider, FormControl, FormHelperText, Heading, Input, InputGroup, InputRightElement, Link, Stack, Text } from '@chakra-ui/react'
 import { SubmitHandler, useForm } from 'react-hook-form'
-import { createUserWithEmailAndPassword } from 'firebase/auth'
+import { signInWithEmailAndPassword } from 'firebase/auth'
 import { auth } from '@/app/functions/libs/firebase'
+import { useRouter } from 'next/navigation'
 
 type Inputs = {
   userName: string
@@ -13,9 +14,11 @@ type Inputs = {
   password: string
 }
 
-export const RegisterForm: FC = memo(() => {
+export const LoginForm: FC = memo(() => {
   
   const [show, setShow] = useState(false)
+
+  const router = useRouter()
   
   const handleClick = () => {
     setShow(!show)
@@ -28,40 +31,24 @@ export const RegisterForm: FC = memo(() => {
   } = useForm<Inputs>()
 
   const onSubmit: SubmitHandler<Inputs> = async(data) => {
-    await createUserWithEmailAndPassword(auth, data.email, data.password)
-      .then((userCredential) => {
-        const user = userCredential.user
-        console.log(user)
-      }).catch((error: any) => {
-        if(error.code === "auth/email-already-in-use") {
-          alert("このメールアドレスはすでに使用されています。")
-        } else {
-          alert(error.message)
-        }
-      })
+    try {
+      await signInWithEmailAndPassword(auth, data.email, data.password)
+      router.push("/")
+    } catch(error: any) {
+      if(error.code === "auth/invalid-credential") {
+        alert("メールアドレスもしくはパスワードが間違っています。")
+      } else {
+        alert(error.message)
+      }
+    }
   }
 
   return (
     <Box bg="white" w="md" p={6} borderRadius="lg" shadow="xl">
-        <Heading as="h2" size="lg" textAlign="center">新規登録</Heading>
+        <Heading as="h2" size="lg" textAlign="center">ログイン</Heading>
         <Divider my={4} />
         <FormControl as="form" onSubmit={handleSubmit(onSubmit)}>
           <Stack spacing={6} py={4} px={6}>
-            <Box>
-              <Text fontSize="sm">ユーザー名</Text>
-              <Input
-                {...register("userName", {
-                  required: "ユーザー名は必須です！",
-                })} 
-                placeholder="ユーザー名" 
-                type="text" 
-              />
-              {errors.userName && (
-                <Text color="red.500" fontSize="sm">
-                  {errors.userName.message}
-                </Text>
-              )}
-            </Box>
             <Box> 
               <Text fontSize="sm">メールアドレス</Text>
               <Input 
@@ -112,8 +99,8 @@ export const RegisterForm: FC = memo(() => {
           </Stack>
         </FormControl>
         <Box textAlign="center">
-          <Text>すでにアカウントをお持ちですか？</Text>
-          <Link href="/auth/login" color="blue.300">ログインページへ</Link>
+          <Text>まだユーザー登録をしていませんか？</Text>
+          <Link href="/auth/register" color="blue.300">新規登録ページへ</Link>
         </Box>
       </Box>
   )
