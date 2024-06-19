@@ -6,6 +6,8 @@ import { Box, Button, Divider, FormControl, FormHelperText, Heading, Input, Inpu
 import { SubmitHandler, useForm } from 'react-hook-form'
 import { createUserWithEmailAndPassword } from 'firebase/auth'
 import { auth } from '@/app/functions/libs/firebase'
+import axios from 'axios'
+import { API } from '@/app/functions/constants/apis'
 
 type Inputs = {
   userName: string
@@ -16,6 +18,9 @@ type Inputs = {
 export const RegisterForm: FC = memo(() => {
   
   const [show, setShow] = useState(false)
+  const [userName, setUserName] = useState("")
+  const [email, setEmail] = useState("")
+  const [password, setPassword] = useState("")
   
   const handleClick = () => {
     setShow(!show)
@@ -27,20 +32,26 @@ export const RegisterForm: FC = memo(() => {
     formState: {errors}
   } = useForm<Inputs>()
 
-  const onSubmit: SubmitHandler<Inputs> = async(data) => {
-    await createUserWithEmailAndPassword(auth, data.email, data.password)
-      .then((userCredential) => {
-        const user = userCredential.user
-        console.log(user)
-      }).catch((error: any) => {
+  const onSubmit: SubmitHandler<Inputs> = async (data) => {
+    try {
+      const url = API.userRegister
+      const response = await axios.post(url, {
+        name: userName,
+        email,
+        password
+      })
+      console.log(response, "fastapiへのユーザー登録完了")
+      const userCredential = await createUserWithEmailAndPassword(auth, data.email, data.password)
+      const user = userCredential.user
+      console.log(user, "firebaseへのユーザー登録完了")
+    } catch(error: any) {
         if(error.code === "auth/email-already-in-use") {
           alert("このメールアドレスはすでに使用されています。")
         } else {
           alert(error.message)
         }
-      })
+    }
   }
-
   return (
     <Box bg="white" w="md" p={6} borderRadius="lg" shadow="xl">
         <Heading as="h2" size="lg" textAlign="center">新規登録</Heading>
@@ -54,7 +65,8 @@ export const RegisterForm: FC = memo(() => {
                   required: "ユーザー名は必須です！",
                 })} 
                 placeholder="ユーザー名" 
-                type="text" 
+                type="text"
+                onChange={(e) => {setUserName(e.target.value)}}
               />
               {errors.userName && (
                 <Text color="red.500" fontSize="sm">
@@ -73,7 +85,8 @@ export const RegisterForm: FC = memo(() => {
                   }
                 })} 
                 placeholder="メールアドレス" 
-                type="email" 
+                type="email"
+                onChange={(e) => {setEmail(e.target.value)}}
               />
               {errors.email && (
                 <Text color="red.500" fontSize="sm">
@@ -95,6 +108,7 @@ export const RegisterForm: FC = memo(() => {
                   })} 
                   placeholder="パスワード" 
                   type={show ? 'text' : 'password'}
+                  onChange={(e) => {setPassword(e.target.value)}}
                 />
                 <InputRightElement width='4.5rem'>
                   <Button h='1.75rem' size='sm' onClick={handleClick}>

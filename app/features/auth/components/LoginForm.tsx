@@ -7,6 +7,8 @@ import { SubmitHandler, useForm } from 'react-hook-form'
 import { signInWithEmailAndPassword } from 'firebase/auth'
 import { auth } from '@/app/functions/libs/firebase'
 import { useRouter } from 'next/navigation'
+import { API } from '@/app/functions/constants/apis'
+import axios from 'axios'
 
 type Inputs = {
   userName: string
@@ -32,13 +34,23 @@ export const LoginForm: FC = memo(() => {
 
   const onSubmit: SubmitHandler<Inputs> = async(data) => {
     try {
-      await signInWithEmailAndPassword(auth, data.email, data.password)
-      router.push("/")
+      const userCredential = await signInWithEmailAndPassword(auth, data.email, data.password)
+      const token = await userCredential.user.getIdToken();
+      const url = API.userLogin
+      await axios.post(url, {}, {
+        headers: { 
+          'Content-Type': 'application/json',
+          'Authorization': `Bearer ${token}`
+        },
+        withCredentials: true
+      })
+      router.push('/')
     } catch(error: any) {
       if(error.code === "auth/invalid-credential") {
         alert("メールアドレスもしくはパスワードが間違っています。")
       } else {
         alert(error.message)
+        console.log("Logged in Error", error)
       }
     }
   }

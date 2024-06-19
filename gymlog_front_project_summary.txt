@@ -9,6 +9,8 @@
       - auth/
         - register/
           - page.tsx
+        - login/
+          - page.tsx
       - about/
         - page.tsx
     - providers/
@@ -16,6 +18,7 @@
     - features/
       - auth/
         - components/
+          - LoginForm.tsx
           - RegisterForm.tsx
     - page.module.css
     - styles/
@@ -35,6 +38,8 @@
     - layout.tsx
     - functions/
       - types/
+      - constants/
+        - apis.ts
       - repositories/
       - libs/
         - firebase.ts
@@ -73,6 +78,26 @@ const Register = () => {
 }
 
 export default Register
+
+```
+
+### app/(pages)/auth/login/page.tsx
+
+```
+import React from 'react'
+import { Flex } from '@chakra-ui/react'
+import { LoginForm } from '@/app/features/auth/components/LoginForm'
+
+const Login = () => {
+
+  return (
+    <Flex align="center" justify="center" height="100vh">
+      <LoginForm />
+    </Flex>
+  )
+}
+
+export default Login
 
 ```
 
@@ -116,17 +141,18 @@ export function DesignProvider({
 
 ```
 
-### app/features/auth/components/RegisterForm.tsx
+### app/features/auth/components/LoginForm.tsx
 
 ```
 "use client"
 
-import React, { useState } from 'react'
+import React, { FC, memo, useState } from 'react'
 import { PrimaryButton } from '@/app/components/atoms/button/PrimaryButton'
-import { Box, Button, Divider, FormControl, FormHelperText, Heading, Input, InputGroup, InputRightElement, Stack, Text } from '@chakra-ui/react'
+import { Box, Button, Divider, FormControl, FormHelperText, Heading, Input, InputGroup, InputRightElement, Link, Stack, Text } from '@chakra-ui/react'
 import { SubmitHandler, useForm } from 'react-hook-form'
-import { createUserWithEmailAndPassword } from 'firebase/auth'
+import { signInWithEmailAndPassword } from 'firebase/auth'
 import { auth } from '@/app/functions/libs/firebase'
+import { useRouter } from 'next/navigation'
 
 type Inputs = {
   userName: string
@@ -134,9 +160,11 @@ type Inputs = {
   password: string
 }
 
-export const RegisterForm = () => {
+export const LoginForm: FC = memo(() => {
   
   const [show, setShow] = useState(false)
+
+  const router = useRouter()
   
   const handleClick = () => {
     setShow(!show)
@@ -149,41 +177,24 @@ export const RegisterForm = () => {
   } = useForm<Inputs>()
 
   const onSubmit: SubmitHandler<Inputs> = async(data) => {
-    console.log("ボタンが押下されました")
-    await createUserWithEmailAndPassword(auth, data.email, data.password)
-      .then((userCredential) => {
-        const user = userCredential.user
-        console.log(user)
-      }).catch((error: any) => {
-        if(error.code === "auth/email-already-in-use") {
-          alert("このメールアドレスはすでに使用されています。")
-        } else {
-          alert(error.message)
-        }
-      })
+    try {
+      await signInWithEmailAndPassword(auth, data.email, data.password)
+      router.push("/")
+    } catch(error: any) {
+      if(error.code === "auth/invalid-credential") {
+        alert("メールアドレスもしくはパスワードが間違っています。")
+      } else {
+        alert(error.message)
+      }
+    }
   }
 
   return (
     <Box bg="white" w="md" p={6} borderRadius="lg" shadow="xl">
-        <Heading as="h2" size="lg" textAlign="center">新規登録</Heading>
+        <Heading as="h2" size="lg" textAlign="center">ログイン</Heading>
         <Divider my={4} />
         <FormControl as="form" onSubmit={handleSubmit(onSubmit)}>
           <Stack spacing={6} py={4} px={6}>
-            <Box>
-              <Text fontSize="sm">ユーザー名</Text>
-              <Input
-                {...register("userName", {
-                  required: "ユーザー名は必須です！",
-                })} 
-                placeholder="ユーザー名" 
-                type="text" 
-              />
-              {errors.userName && (
-                <Text color="red.500" fontSize="sm">
-                  {errors.userName.message}
-                </Text>
-              )}
-            </Box>
             <Box> 
               <Text fontSize="sm">メールアドレス</Text>
               <Input 
@@ -233,9 +244,154 @@ export const RegisterForm = () => {
             <PrimaryButton type="submit">ユーザー登録</PrimaryButton>
           </Stack>
         </FormControl>
+        <Box textAlign="center">
+          <Text>まだユーザー登録をしていませんか？</Text>
+          <Link href="/auth/register" color="blue.300">新規登録ページへ</Link>
+        </Box>
       </Box>
   )
+})
+
+
+```
+
+### app/features/auth/components/RegisterForm.tsx
+
+```
+"use client"
+
+import React, { FC, memo, useState } from 'react'
+import { PrimaryButton } from '@/app/components/atoms/button/PrimaryButton'
+import { Box, Button, Divider, FormControl, FormHelperText, Heading, Input, InputGroup, InputRightElement, Link, Stack, Text } from '@chakra-ui/react'
+import { SubmitHandler, useForm } from 'react-hook-form'
+import { createUserWithEmailAndPassword } from 'firebase/auth'
+import { auth } from '@/app/functions/libs/firebase'
+import axios from 'axios'
+import { API } from '@/app/functions/constants/apis'
+
+type Inputs = {
+  userName: string
+  email: string
+  password: string
 }
+
+export const RegisterForm: FC = memo(() => {
+  
+  const [show, setShow] = useState(false)
+  const [userName, setUserName] = useState("")
+  const [email, setEmail] = useState("")
+  const [password, setPassword] = useState("")
+  
+  const handleClick = () => {
+    setShow(!show)
+  }
+
+  const {
+    register,
+    handleSubmit,
+    formState: {errors}
+  } = useForm<Inputs>()
+
+  const onSubmit: SubmitHandler<Inputs> = async (data) => {
+    try {
+      const userCredential = await createUserWithEmailAndPassword(auth, data.email, data.password)
+      const user = userCredential.user
+      console.log(user, "firebaseへのユーザー登録完了")
+      const url = API.user
+      const response = await axios.post(url, {
+        name: userName,
+        email,
+        password
+      })
+      console.log(response, "fastapiへのユーザー登録完了")
+    } catch(error: any) {
+        if(error.code === "auth/email-already-in-use") {
+          alert("このメールアドレスはすでに使用されています。")
+        } else {
+          alert(error.message)
+        }
+    }
+  }
+  return (
+    <Box bg="white" w="md" p={6} borderRadius="lg" shadow="xl">
+        <Heading as="h2" size="lg" textAlign="center">新規登録</Heading>
+        <Divider my={4} />
+        <FormControl as="form" onSubmit={handleSubmit(onSubmit)}>
+          <Stack spacing={6} py={4} px={6}>
+            <Box>
+              <Text fontSize="sm">ユーザー名</Text>
+              <Input
+                {...register("userName", {
+                  required: "ユーザー名は必須です！",
+                })} 
+                placeholder="ユーザー名" 
+                type="text"
+                onChange={(e) => {setUserName(e.target.value)}}
+              />
+              {errors.userName && (
+                <Text color="red.500" fontSize="sm">
+                  {errors.userName.message}
+                </Text>
+              )}
+            </Box>
+            <Box> 
+              <Text fontSize="sm">メールアドレス</Text>
+              <Input 
+                {...register("email", {
+                  required: "メールアドレスは必須です！",
+                  pattern: {
+                    value: /^[A-Z0-9._%+-]+@[A-Z0-9.-]+\.[A-Z]{2,}$/i,
+                    message: "正しいメールアドレスを入力してください",
+                  }
+                })} 
+                placeholder="メールアドレス" 
+                type="email"
+                onChange={(e) => {setEmail(e.target.value)}}
+              />
+              {errors.email && (
+                <Text color="red.500" fontSize="sm">
+                  {errors.email.message}
+                </Text>
+              )}
+            </Box>
+            <Box>
+              <Text fontSize="sm">パスワード</Text>
+              <FormHelperText color="blue.300">半角英数字 6文字以上</FormHelperText>
+              <InputGroup>
+                <Input
+                  {...register("password", {
+                    required: "パスワードは必須です！",
+                    pattern: {
+                      value: /^(?=.*[a-zA-Z])(?=.*\d)[a-zA-Z\d]{6,}$/,
+                      message: "パスワードは6文字以上の半角英数字の組み合わせで入力してください。",
+                    }
+                  })} 
+                  placeholder="パスワード" 
+                  type={show ? 'text' : 'password'}
+                  onChange={(e) => {setPassword(e.target.value)}}
+                />
+                <InputRightElement width='4.5rem'>
+                  <Button h='1.75rem' size='sm' onClick={handleClick}>
+                    {show ? 'Hide' : 'Show'}
+                  </Button>
+                </InputRightElement>
+              </InputGroup>
+              {errors.password && (
+                <Text color="red.500" fontSize="sm">
+                  {errors.password.message}
+                </Text>
+              )}     
+            </Box>
+            <PrimaryButton type="submit">ユーザー登録</PrimaryButton>
+          </Stack>
+        </FormControl>
+        <Box textAlign="center">
+          <Text>すでにアカウントをお持ちですか？</Text>
+          <Link href="/auth/login" color="blue.300">ログインページへ</Link>
+        </Box>
+      </Box>
+  )
+})
 
 
 ```
@@ -725,11 +881,22 @@ export default function RootLayout({
 
 ```
 
+### app/functions/constants/apis.ts
+
+```
+export const apiUrl = 
+  process.env.NEXT_PUBLIC_BASE_API_URL
+
+export const API = {
+  user: `{apiUrl}/user`
+}
+
+```
+
 ### app/functions/libs/firebase.ts
 
 ```
 import { initializeApp } from "firebase/app";
-import { getAnalytics } from "firebase/analytics";
 import { getAuth } from "firebase/auth";
 
 const firebaseConfig = {
@@ -744,8 +911,13 @@ const firebaseConfig = {
 
 // Initialize Firebase
 const app = initializeApp(firebaseConfig);
-const analytics = getAnalytics(app);
 export const auth = getAuth(app);
+
+// クライアントサイドでのみ Analytics を初期化する
+// if (typeof window !== "undefined") {
+//   const { getAnalytics } = await import("firebase/analytics");
+//   const analytics = getAnalytics(app);
+// }
 
 ```
 
@@ -1066,6 +1238,7 @@ CMD ["npm", "run", "start"]
         "@chakra-ui/react": "^2.8.2",
         "@emotion/react": "^11.11.4",
         "@emotion/styled": "^11.11.5",
+        "axios": "^1.7.2",
         "firebase": "^10.12.2",
         "framer-motion": "^11.2.10",
         "next": "14.2.3",
@@ -3946,6 +4119,11 @@ CMD ["npm", "run", "start"]
       "integrity": "sha512-OH/2E5Fg20h2aPrbe+QL8JZQFko0YZaF+j4mnQ7BGhfavO7OpSLa8a0y9sBwomHdSbkhTS8TQNayBfnW5DwbvQ==",
       "dev": true
     },
+    "node_modules/asynckit": {
+      "version": "0.4.0",
+      "resolved": "https://registry.npmjs.org/asynckit/-/asynckit-0.4.0.tgz",
+      "integrity": "sha512-Oei9OH4tRh0YqU3GxhX79dM/mwVgvbZJaSNaRk+bshkj0S5cfHcgYakreBjrHwatXKbz+IoIdYLxrKim2MjW0Q=="
+    },
     "node_modules/available-typed-arrays": {
       "version": "1.0.7",
       "resolved": "https://registry.npmjs.org/available-typed-arrays/-/available-typed-arrays-1.0.7.tgz",
@@ -3968,6 +4146,16 @@ CMD ["npm", "run", "start"]
       "dev": true,
       "engines": {
         "node": ">=4"
+      }
+    },
+    "node_modules/axios": {
+      "version": "1.7.2",
+      "resolved": "https://registry.npmjs.org/axios/-/axios-1.7.2.tgz",
+      "integrity": "sha512-2A8QhOMrbomlDuiLeK9XibIBzuHeRcqqNOHp0Cyp5EoJ1IFDh+XZH3A6BkXtv0K4gFGCI0Y4BM7B1wOEi0Rmgw==",
+      "dependencies": {
+        "follow-redirects": "^1.15.6",
+        "form-data": "^4.0.0",
+        "proxy-from-env": "^1.1.0"
       }
     },
     "node_modules/axobject-query": {
@@ -4167,6 +4355,17 @@ CMD ["npm", "run", "start"]
       "resolved": "https://registry.npmjs.org/color2k/-/color2k-2.0.3.tgz",
       "integrity": "sha512-zW190nQTIoXcGCaU08DvVNFTmQhUpnJfVuAKfWqUQkflXKpaDdpaYoM0iluLS9lgJNHyBF58KKA2FBEwkD7wog=="
     },
+    "node_modules/combined-stream": {
+      "version": "1.0.8",
+      "resolved": "https://registry.npmjs.org/combined-stream/-/combined-stream-1.0.8.tgz",
+      "integrity": "sha512-FQN4MRfuJeHf7cBbBMJFXhKSDq+2kAArBlmRBvcvFE5BB1HZKXtSFASDhdlz9zOYwxh8lDdnvmMOe/+5cdoEdg==",
+      "dependencies": {
+        "delayed-stream": "~1.0.0"
+      },
+      "engines": {
+        "node": ">= 0.8"
+      }
+    },
     "node_modules/compute-scroll-into-view": {
       "version": "3.0.3",
       "resolved": "https://registry.npmjs.org/compute-scroll-into-view/-/compute-scroll-into-view-3.0.3.tgz",
@@ -4345,6 +4544,14 @@ CMD ["npm", "run", "start"]
       },
       "funding": {
         "url": "https://github.com/sponsors/ljharb"
+      }
+    },
+    "node_modules/delayed-stream": {
+      "version": "1.0.0",
+      "resolved": "https://registry.npmjs.org/delayed-stream/-/delayed-stream-1.0.0.tgz",
+      "integrity": "sha512-ZySD7Nf91aLB0RxL4KGrKHBXl7Eds1DAmEdcoVawXnLD7SDhpNgtuII2aAkg7a7QS41jxPSZ17p4VdGnMHk3MQ==",
+      "engines": {
+        "node": ">=0.4.0"
       }
     },
     "node_modules/dequal": {
@@ -5204,6 +5411,25 @@ CMD ["npm", "run", "start"]
         "node": ">=10"
       }
     },
+    "node_modules/follow-redirects": {
+      "version": "1.15.6",
+      "resolved": "https://registry.npmjs.org/follow-redirects/-/follow-redirects-1.15.6.tgz",
+      "integrity": "sha512-wWN62YITEaOpSK584EZXJafH1AGpO8RVgElfkuXbTOrPX4fIfOyEpW/CsiNd8JdYrAoOvafRTOEnvsO++qCqFA==",
+      "funding": [
+        {
+          "type": "individual",
+          "url": "https://github.com/sponsors/RubenVerborgh"
+        }
+      ],
+      "engines": {
+        "node": ">=4.0"
+      },
+      "peerDependenciesMeta": {
+        "debug": {
+          "optional": true
+        }
+      }
+    },
     "node_modules/for-each": {
       "version": "0.3.3",
       "resolved": "https://registry.npmjs.org/for-each/-/for-each-0.3.3.tgz",
@@ -5227,6 +5453,19 @@ CMD ["npm", "run", "start"]
       },
       "funding": {
         "url": "https://github.com/sponsors/isaacs"
+      }
+    },
+    "node_modules/form-data": {
+      "version": "4.0.0",
+      "resolved": "https://registry.npmjs.org/form-data/-/form-data-4.0.0.tgz",
+      "integrity": "sha512-ETEklSGi5t0QMZuiXoA/Q6vcnxcLQP5vdugSpuAyi6SVGi2clPPp+xgEhuMaHC+zGgn31Kd235W35f7Hykkaww==",
+      "dependencies": {
+        "asynckit": "^0.4.0",
+        "combined-stream": "^1.0.8",
+        "mime-types": "^2.1.12"
+      },
+      "engines": {
+        "node": ">= 6"
       }
     },
     "node_modules/framer-motion": {
@@ -6264,6 +6503,25 @@ CMD ["npm", "run", "start"]
         "node": ">=8.6"
       }
     },
+    "node_modules/mime-db": {
+      "version": "1.52.0",
+      "resolved": "https://registry.npmjs.org/mime-db/-/mime-db-1.52.0.tgz",
+      "integrity": "sha512-sPU4uV7dYlvtWJxwwxHD0PuihVNiE7TyAbQ5SWxDCB9mUYvOgroQOwYQQOKPJ8CIbE+1ETVlOoK1UC2nU3gYvg==",
+      "engines": {
+        "node": ">= 0.6"
+      }
+    },
+    "node_modules/mime-types": {
+      "version": "2.1.35",
+      "resolved": "https://registry.npmjs.org/mime-types/-/mime-types-2.1.35.tgz",
+      "integrity": "sha512-ZDY+bPm5zTTF+YpCrAU9nK0UgICYPT0QtT1NZWFv4s++TNkcgVaT0g6+4R2uI4MjQjzysHB1zxuWL50hzaeXiw==",
+      "dependencies": {
+        "mime-db": "1.52.0"
+      },
+      "engines": {
+        "node": ">= 0.6"
+      }
+    },
     "node_modules/minimatch": {
       "version": "3.1.2",
       "resolved": "https://registry.npmjs.org/minimatch/-/minimatch-3.1.2.tgz",
@@ -6730,6 +6988,11 @@ CMD ["npm", "run", "start"]
       "engines": {
         "node": ">=12.0.0"
       }
+    },
+    "node_modules/proxy-from-env": {
+      "version": "1.1.0",
+      "resolved": "https://registry.npmjs.org/proxy-from-env/-/proxy-from-env-1.1.0.tgz",
+      "integrity": "sha512-D+zkORCbA9f1tdWRK0RaCR3GPv50cMxcrz4X8k5LTSUD1Dkw47mKJEZQNunItRTkWwgtaUSo1RVFRIG9ZXiFYg=="
     },
     "node_modules/punycode": {
       "version": "2.3.1",
@@ -8071,6 +8334,7 @@ CMD ["npm", "run", "start"]
     "@chakra-ui/react": "^2.8.2",
     "@emotion/react": "^11.11.4",
     "@emotion/styled": "^11.11.5",
+    "axios": "^1.7.2",
     "firebase": "^10.12.2",
     "framer-motion": "^11.2.10",
     "next": "14.2.3",
@@ -8095,6 +8359,7 @@ CMD ["npm", "run", "start"]
 ```
 {
   "compilerOptions": {
+    "target": "es2017",
     "lib": ["dom", "dom.iterable", "esnext"],
     "allowJs": true,
     "skipLibCheck": true,
