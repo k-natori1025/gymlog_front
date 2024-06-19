@@ -1,13 +1,16 @@
 'use client'
 
 import React, { FC, memo } from 'react'
-import { Box, Flex, Heading, Link, useDisclosure } from '@chakra-ui/react';
+import { Flex, Heading, Text, useDisclosure } from '@chakra-ui/react';
 import { useTheme } from '@chakra-ui/react';
 import MenuIconButton from '../../atoms/button/MenuIconButton';
 import MenuDrawer from '../../molecules/MenuDrawer';
+import LogoutButton from '../../atoms/button/LogoutButton';
+import { useAppContext } from '@/app/functions/contexts/AppContext';
 
 export const Header: FC = memo(() => {
 
+  const { user } = useAppContext()
   const theme = useTheme()
   
   const { isOpen, onOpen, onClose } = useDisclosure()
@@ -23,10 +26,10 @@ export const Header: FC = memo(() => {
         padding={{ base: 3, md: 5}}
       >
         <Flex display={{ base: "none", md: "flex" }}>
-          <Box pr={4}>
-            <Link>記録する</Link>
-          </Box>
-          <Link>設定</Link>
+          <LogoutButton />
+          <Flex align="center" justify="center">
+            <Text>{user?.email}</Text>
+          </Flex>
         </Flex>
         <MenuIconButton onOpen={onOpen} />
         <Flex as="a" _hover={{ cursor: "pointer" }}>

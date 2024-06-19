@@ -8,6 +8,7 @@ import { createUserWithEmailAndPassword } from 'firebase/auth'
 import { auth } from '@/app/functions/libs/firebase'
 import axios from 'axios'
 import { API } from '@/app/functions/constants/apis'
+import { useRouter } from 'next/navigation'
 
 type Inputs = {
   userName: string
@@ -21,7 +22,7 @@ export const RegisterForm: FC = memo(() => {
   const [userName, setUserName] = useState("")
   const [email, setEmail] = useState("")
   const [password, setPassword] = useState("")
-  
+  const router = useRouter()
   const handleClick = () => {
     setShow(!show)
   }
@@ -43,7 +44,8 @@ export const RegisterForm: FC = memo(() => {
       console.log(response, "fastapiへのユーザー登録完了")
       const userCredential = await createUserWithEmailAndPassword(auth, data.email, data.password)
       const user = userCredential.user
-      console.log(user, "firebaseへのユーザー登録完了")
+      console.log("firebaseへのユーザー登録完了")
+      router.push("/")
     } catch(error: any) {
         if(error.code === "auth/email-already-in-use") {
           alert("このメールアドレスはすでに使用されています。")

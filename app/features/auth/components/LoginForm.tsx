@@ -36,7 +36,7 @@ export const LoginForm: FC = memo(() => {
     try {
       const userCredential = await signInWithEmailAndPassword(auth, data.email, data.password)
       const token = await userCredential.user.getIdToken();
-      const url = API.userLogin
+      const url = API.login
       await axios.post(url, {}, {
         headers: { 
           'Content-Type': 'application/json',

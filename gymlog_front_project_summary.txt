@@ -4,6 +4,7 @@
 
 - gymlog_front/
   - app/
+    - middleware.ts
     - favicon.ico (binary file)
     - (pages)/
       - auth/
@@ -28,6 +29,7 @@
         - MenuDrawer.tsx
       - atoms/
         - button/
+          - LogoutButton.tsx
           - PrimaryButton.tsx
           - MenuIconButton.tsx
       - templates/
@@ -38,6 +40,8 @@
     - layout.tsx
     - functions/
       - types/
+      - contexts/
+        - AppContext.tsx
       - constants/
         - apis.ts
       - repositories/
@@ -60,6 +64,30 @@
   - .eslintrc.json
 
 ## File Contents
+
+### app/middleware.ts
+
+```
+import { NextRequest, NextResponse } from 'next/server'
+
+export function middleware(request: NextRequest) {
+  const token = request.cookies.get('session')
+
+  // トークンが存在しない場合はログインページにリダイレクト
+  if (!token) {
+    return NextResponse.redirect(new URL('/auth/login', request.url))
+  }
+
+  // 認証済みの場合は次の処理へ
+  return NextResponse.next()
+}
+
+// 保護するルートを指定
+export const config = {
+  matcher: ['/', '/protected-route', '/another-protected-route'], // 保護するパスを追加
+}
+
+```
 
 ### app/(pages)/auth/register/page.tsx
 
@@ -107,7 +135,7 @@ export default Login
 import HeaderLayout from '@/app/components/templates/HeaderLayout'
 import React from 'react'
 
-export const About = () => {
+const About = () => {
   return (
       <div>
         <HeaderLayout>
@@ -116,6 +144,8 @@ export const About = () => {
       </div>
   )
 }
+
+export default About
 
 ```
 
@@ -153,6 +183,8 @@ import { SubmitHandler, useForm } from 'react-hook-form'
 import { signInWithEmailAndPassword } from 'firebase/auth'
 import { auth } from '@/app/functions/libs/firebase'
 import { useRouter } from 'next/navigation'
+import { API } from '@/app/functions/constants/apis'
+import axios from 'axios'
 
 type Inputs = {
   userName: string
@@ -178,13 +210,23 @@ export const LoginForm: FC = memo(() => {
 
   const onSubmit: SubmitHandler<Inputs> = async(data) => {
     try {
-      await signInWithEmailAndPassword(auth, data.email, data.password)
-      router.push("/")
+      const userCredential = await signInWithEmailAndPassword(auth, data.email, data.password)
+      const token = await userCredential.user.getIdToken();
+      const url = API.login
+      await axios.post(url, {}, {
+        headers: { 
+          'Content-Type': 'application/json',
+          'Authorization': `Bearer ${token}`
+        },
+        withCredentials: true
+      })
+      router.push('/')
     } catch(error: any) {
       if(error.code === "auth/invalid-credential") {
         alert("メールアドレスもしくはパスワードが間違っています。")
       } else {
         alert(error.message)
+        console.log("Logged in Error", error)
       }
     }
   }
@@ -268,6 +310,7 @@ import { createUserWithEmailAndPassword } from 'firebase/auth'
 import { auth } from '@/app/functions/libs/firebase'
 import axios from 'axios'
 import { API } from '@/app/functions/constants/apis'
+import { useRouter } from 'next/navigation'
 
 type Inputs = {
   userName: string
@@ -281,7 +324,7 @@ export const RegisterForm: FC = memo(() => {
   const [userName, setUserName] = useState("")
   const [email, setEmail] = useState("")
   const [password, setPassword] = useState("")
-  
+  const router = useRouter()
   const handleClick = () => {
     setShow(!show)
   }
@@ -294,16 +337,17 @@ export const RegisterForm: FC = memo(() => {
 
   const onSubmit: SubmitHandler<Inputs> = async (data) => {
     try {
-      const userCredential = await createUserWithEmailAndPassword(auth, data.email, data.password)
-      const user = userCredential.user
-      console.log(user, "firebaseへのユーザー登録完了")
-      const url = API.user
+      const url = API.userRegister
       const response = await axios.post(url, {
         name: userName,
         email,
         password
       })
       console.log(response, "fastapiへのユーザー登録完了")
+      const userCredential = await createUserWithEmailAndPassword(auth, data.email, data.password)
+      const user = userCredential.user
+      console.log("firebaseへのユーザー登録完了")
+      router.push("/")
     } catch(error: any) {
         if(error.code === "auth/email-already-in-use") {
           alert("このメールアドレスはすでに使用されています。")
@@ -685,6 +729,7 @@ export default theme
 ```
 import { Button, Drawer, DrawerBody, DrawerContent, DrawerOverlay } from '@chakra-ui/react'
 import React, { FC, memo } from 'react'
+import LogoutButton from '../atoms/button/LogoutButton';
 
 type Props = {
   onClose: () => void;
@@ -708,6 +753,7 @@ const MenuDrawer: FC<Props> = memo((props) => {
               <Button w="100%">
                 設定
               </Button>
+              <LogoutButton />
             </DrawerBody>
           </DrawerContent>
         </DrawerOverlay>
@@ -716,6 +762,45 @@ const MenuDrawer: FC<Props> = memo((props) => {
 })
 
 export default MenuDrawer
+
+```
+
+### app/components/atoms/button/LogoutButton.tsx
+
+```
+import React, { FC, memo } from 'react'
+import { Button, Text } from '@chakra-ui/react';
+import { IoMdLogOut } from "react-icons/io";
+import { auth } from '@/app/functions/libs/firebase';
+import axios from 'axios';
+import { useRouter } from 'next/navigation';
+import { API } from '@/app/functions/constants/apis';
+
+
+const LogoutButton:FC = memo(() => {
+
+  const router = useRouter()
+  const handleLogout = async() => {
+    try {
+      await auth.signOut();
+      const url = API.logout
+      await axios.post(url, {}, {
+        withCredentials: true
+      });
+      router.push('/auth/login');
+    } catch (error) {
+      console.error('Logout error:', error);
+    }
+  }
+  return (
+    <Button colorScheme='white' variant='ghost' onClick={handleLogout}>
+      <Text fontSize="sm">ログアウト</Text>
+      <IoMdLogOut/>
+    </Button>
+  )
+})
+
+export default LogoutButton
 
 ```
 
@@ -805,13 +890,17 @@ export default HeaderLayout
 'use client'
 
 import React, { FC, memo } from 'react'
-import { Box, Flex, Heading, Link, useDisclosure } from '@chakra-ui/react';
+import { Flex, Heading, Text, useDisclosure } from '@chakra-ui/react';
 import { useTheme } from '@chakra-ui/react';
 import MenuIconButton from '../../atoms/button/MenuIconButton';
 import MenuDrawer from '../../molecules/MenuDrawer';
+import LogoutButton from '../../atoms/button/LogoutButton';
+import { useAppContext } from '@/app/functions/contexts/AppContext';
 
 export const Header: FC = memo(() => {
 
+  const { user } = useAppContext()
+  console.log(user)
   const theme = useTheme()
   
   const { isOpen, onOpen, onClose } = useDisclosure()
@@ -827,10 +916,10 @@ export const Header: FC = memo(() => {
         padding={{ base: 3, md: 5}}
       >
         <Flex display={{ base: "none", md: "flex" }}>
-          <Box pr={4}>
-            <Link>記録する</Link>
-          </Box>
-          <Link>設定</Link>
+          <LogoutButton />
+          <Flex align="center" justify="center">
+            <Text>{user?.email}</Text>
+          </Flex>
         </Flex>
         <MenuIconButton onOpen={onOpen} />
         <Flex as="a" _hover={{ cursor: "pointer" }}>
@@ -855,6 +944,7 @@ import type { Metadata } from "next";
 import { Inter } from "next/font/google";
 import { DesignProvider } from "./providers/designProvider";
 import "./globals.css";
+import { AppProvider } from "./functions/contexts/AppContext";
 
 const inter = Inter({ subsets: ["latin"] });
 
@@ -871,13 +961,72 @@ export default function RootLayout({
   return (
     <html lang="en">
       <body className={inter.className}>
-        <DesignProvider>
-          {children}
-        </DesignProvider>
+        <AppProvider>
+          <DesignProvider>
+            {children}
+          </DesignProvider>
+        </AppProvider>
       </body>
     </html>
   );
 }
+
+
+```
+
+### app/functions/contexts/AppContext.tsx
+
+```
+"use client"
+
+import { User, onAuthStateChanged } from "firebase/auth";
+import { ReactNode, createContext, useContext, useEffect, useState } from "react";
+import { auth } from "../libs/firebase";
+
+type AppProviderProps = {
+  children: ReactNode
+}
+
+type AppContextType = {
+  user: User | null,
+  setUser: React.Dispatch<React.SetStateAction<User | null>>
+}
+
+const defaultContextData = {
+  user: null,
+  setUser: () => {}
+}
+
+const AppContext = createContext<AppContextType>(defaultContextData)
+
+// 状態をグローバルに管理
+export function AppProvider({children}: AppProviderProps) {
+  const [user, setUser] = useState<User | null>(null)
+
+  // ログインの状態を管理
+  useEffect(() => {
+    const unsubscribe = onAuthStateChanged(auth, (newUser) => {
+      setUser(newUser)
+    })
+    // アンマウント時に状態管理の関数をストップ=メモリリークを防ぐ
+    return () => {
+      unsubscribe()
+    }
+  }, [])
+
+  return (
+    <AppContext.Provider 
+      value={{ user, setUser }}
+    >
+      {children}
+    </AppContext.Provider>
+  )
+}
+
+export function useAppContext() {
+  return useContext(AppContext)
+}
+
 
 ```
 
@@ -888,7 +1037,9 @@ export const apiUrl =
   process.env.NEXT_PUBLIC_BASE_API_URL
 
 export const API = {
-  user: `{apiUrl}/user`
+  userRegister: `${apiUrl}/user`,
+  login: `${apiUrl}/login`,
+  logout: `${apiUrl}/logout`,
 }
 
 ```
@@ -924,99 +1075,13 @@ export const auth = getAuth(app);
 ### app/page.tsx
 
 ```
-import Image from "next/image";
-import styles from "./page.module.css";
+import HeaderLayout from "./components/templates/HeaderLayout";
 
 export default function Home() {
   return (
-    <main className={styles.main}>
-      <div className={styles.description}>
-        <p>
-          Get started by editing&nbsp;
-          <code className={styles.code}>app/page.tsx</code>
-        </p>
-        <div>
-          <a
-            href="https://vercel.com?utm_source=create-next-app&utm_medium=appdir-template&utm_campaign=create-next-app"
-            target="_blank"
-            rel="noopener noreferrer"
-          >
-            By{" "}
-            <Image
-              src="/vercel.svg"
-              alt="Vercel Logo"
-              className={styles.vercelLogo}
-              width={100}
-              height={24}
-              priority
-            />
-          </a>
-        </div>
-      </div>
-
-      <div className={styles.center}>
-        <Image
-          className={styles.logo}
-          src="/next.svg"
-          alt="Next.js Logo"
-          width={180}
-          height={37}
-          priority
-        />
-      </div>
-
-      <div className={styles.grid}>
-        <a
-          href="https://nextjs.org/docs?utm_source=create-next-app&utm_medium=appdir-template&utm_campaign=create-next-app"
-          className={styles.card}
-          target="_blank"
-          rel="noopener noreferrer"
-        >
-          <h2>
-            Docs <span>-&gt;</span>
-          </h2>
-          <p>Find in-depth information about Next.js features and API.</p>
-        </a>
-
-        <a
-          href="https://nextjs.org/learn?utm_source=create-next-app&utm_medium=appdir-template&utm_campaign=create-next-app"
-          className={styles.card}
-          target="_blank"
-          rel="noopener noreferrer"
-        >
-          <h2>
-            Learn <span>-&gt;</span>
-          </h2>
-          <p>Learn about Next.js in an interactive course with&nbsp;quizzes!</p>
-        </a>
-
-        <a
-          href="https://vercel.com/templates?framework=next.js&utm_source=create-next-app&utm_medium=appdir-template&utm_campaign=create-next-app"
-          className={styles.card}
-          target="_blank"
-          rel="noopener noreferrer"
-        >
-          <h2>
-            Templates <span>-&gt;</span>
-          </h2>
-          <p>Explore starter templates for Next.js.</p>
-        </a>
-
-        <a
-          href="https://vercel.com/new?utm_source=create-next-app&utm_medium=appdir-template&utm_campaign=create-next-app"
-          className={styles.card}
-          target="_blank"
-          rel="noopener noreferrer"
-        >
-          <h2>
-            Deploy <span>-&gt;</span>
-          </h2>
-          <p>
-            Instantly deploy your Next.js site to a shareable URL with Vercel.
-          </p>
-        </a>
-      </div>
-    </main>
+    <HeaderLayout>
+      <p>Top</p>
+    </HeaderLayout>
   );
 }
 
@@ -1244,7 +1309,8 @@ CMD ["npm", "run", "start"]
         "next": "14.2.3",
         "react": "^18",
         "react-dom": "^18",
-        "react-hook-form": "^7.51.5"
+        "react-hook-form": "^7.51.5",
+        "react-icons": "^5.2.1"
       },
       "devDependencies": {
         "@types/node": "^20",
@@ -7099,6 +7165,14 @@ CMD ["npm", "run", "start"]
         "react": "^16.8.0 || ^17 || ^18"
       }
     },
+    "node_modules/react-icons": {
+      "version": "5.2.1",
+      "resolved": "https://registry.npmjs.org/react-icons/-/react-icons-5.2.1.tgz",
+      "integrity": "sha512-zdbW5GstTzXaVKvGSyTaBalt7HSfuK5ovrzlpyiWHAFXndXTdd/1hdDHI4xBM1Mn7YriT6aqESucFl9kEXzrdw==",
+      "peerDependencies": {
+        "react": "*"
+      }
+    },
     "node_modules/react-is": {
       "version": "16.13.1",
       "resolved": "https://registry.npmjs.org/react-is/-/react-is-16.13.1.tgz",
@@ -8340,7 +8414,8 @@ CMD ["npm", "run", "start"]
     "next": "14.2.3",
     "react": "^18",
     "react-dom": "^18",
-    "react-hook-form": "^7.51.5"
+    "react-hook-form": "^7.51.5",
+    "react-icons": "^5.2.1"
   },
   "devDependencies": {
     "@types/node": "^20",

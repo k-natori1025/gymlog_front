@@ -3,5 +3,6 @@ export const apiUrl =
 
 export const API = {
   userRegister: `${apiUrl}/user`,
-  userLogin: `${apiUrl}/login`
+  login: `${apiUrl}/login`,
+  logout: `${apiUrl}/logout`,
 }

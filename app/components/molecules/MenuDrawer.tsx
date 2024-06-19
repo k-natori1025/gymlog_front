@@ -1,5 +1,6 @@
 import { Button, Drawer, DrawerBody, DrawerContent, DrawerOverlay } from '@chakra-ui/react'
 import React, { FC, memo } from 'react'
+import LogoutButton from '../atoms/button/LogoutButton';
 
 type Props = {
   onClose: () => void;
@@ -23,6 +24,7 @@ const MenuDrawer: FC<Props> = memo((props) => {
               <Button w="100%">
                 設定
               </Button>
+              <LogoutButton />
             </DrawerBody>
           </DrawerContent>
         </DrawerOverlay>

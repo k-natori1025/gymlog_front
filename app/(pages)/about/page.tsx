@@ -1,7 +1,7 @@
 import HeaderLayout from '@/app/components/templates/HeaderLayout'
 import React from 'react'
 
-export const About = () => {
+const About = () => {
   return (
       <div>
         <HeaderLayout>
@@ -10,3 +10,5 @@ export const About = () => {
       </div>
   )
 }
+
+export default About
