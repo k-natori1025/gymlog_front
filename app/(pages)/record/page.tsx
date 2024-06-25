@@ -1,12 +1,14 @@
-import HeaderLayout from '@/app/components/templates/HeaderLayout'
+"use client"
+
+import SideNavLayout from '@/app/components/templates/SideNavLayout'
 import React from 'react'
 
 const About = () => {
   return (
       <div>
-        <HeaderLayout>
+        <SideNavLayout>
           <p>about</p>
-        </HeaderLayout>
+        </SideNavLayout>
       </div>
   )
 }

@@ -4,7 +4,6 @@
 
 - gymlog_front/
   - app/
-    - middleware.ts
     - favicon.ico (binary file)
     - (pages)/
       - auth/
@@ -34,14 +33,17 @@
           - MenuIconButton.tsx
       - templates/
         - HeaderLayout.tsx
+        - SideNavLayout.tsx
       - organisms/
         - layouts/
+          - SideNav.tsx
+          - FooterNav.tsx
           - Header.tsx
     - layout.tsx
     - functions/
       - types/
       - contexts/
-        - AppContext.tsx
+        - UserContext.tsx
       - constants/
         - apis.ts
       - repositories/
@@ -64,30 +66,6 @@
   - .eslintrc.json
 
 ## File Contents
-
-### app/middleware.ts
-
-```
-import { NextRequest, NextResponse } from 'next/server'
-
-export function middleware(request: NextRequest) {
-  const token = request.cookies.get('session')
-
-  // トークンが存在しない場合はログインページにリダイレクト
-  if (!token) {
-    return NextResponse.redirect(new URL('/auth/login', request.url))
-  }
-
-  // 認証済みの場合は次の処理へ
-  return NextResponse.next()
-}
-
-// 保護するルートを指定
-export const config = {
-  matcher: ['/', '/protected-route', '/another-protected-route'], // 保護するパスを追加
-}
-
-```
 
 ### app/(pages)/auth/register/page.tsx
 
@@ -132,15 +110,17 @@ export default Login
 ### app/(pages)/about/page.tsx
 
 ```
-import HeaderLayout from '@/app/components/templates/HeaderLayout'
+"use client"
+
+import SideNavLayout from '@/app/components/templates/SideNavLayout'
 import React from 'react'
 
 const About = () => {
   return (
       <div>
-        <HeaderLayout>
+        <SideNavLayout>
           <p>about</p>
-        </HeaderLayout>
+        </SideNavLayout>
       </div>
   )
 }
@@ -794,8 +774,8 @@ const LogoutButton:FC = memo(() => {
   }
   return (
     <Button colorScheme='white' variant='ghost' onClick={handleLogout}>
-      <Text fontSize="sm">ログアウト</Text>
-      <IoMdLogOut/>
+      <Text fontSize="sm" color="white">ログアウト</Text>
+      <IoMdLogOut color="white"/>
     </Button>
   )
 })
@@ -884,6 +864,115 @@ export default HeaderLayout
 
 ```
 
+### app/components/templates/SideNavLayout.tsx
+
+```
+import React, { FC, ReactNode, memo } from 'react'
+import { SideNav } from '../organisms/layouts/SideNav';
+import { Grid, GridItem } from '@chakra-ui/react';
+import { FooterNav } from '../organisms/layouts/FooterNav';
+
+type Props = {
+  children: ReactNode
+}
+
+const SideNavLayout: FC<Props> = memo((props) => {
+  const { children } = props
+  return(
+    <Grid
+      templateColumns={{ base: '1fr', md: '15% 1fr' }}
+      templateRows={{ base: '1fr auto', md: '1fr' }}
+      height="100vh"
+    >
+      <GridItem display={{ base: 'none', md: 'block' }}>
+        <SideNav />
+      </GridItem>
+      <GridItem>
+        {children}
+      </GridItem>
+        <GridItem display={{ base: 'block', md: 'none' }}>
+          <FooterNav />
+        </GridItem>
+    </Grid>
+  )
+});
+
+export default SideNavLayout
+
+```
+
+### app/components/organisms/layouts/SideNav.tsx
+
+```
+import { Box, Flex, Heading, Text, useTheme } from '@chakra-ui/react'
+import React, { FC, memo } from 'react'
+import LogoutButton from '../../atoms/button/LogoutButton'
+import { useUserContext } from '@/app/functions/contexts/UserContext'
+
+export const SideNav:FC = memo(() => {
+  const { user } = useUserContext()
+  const theme = useTheme()
+
+  return (
+    <Box
+      width="100%"
+      height="100vh"
+      bg={theme.colors.brand.gradient}
+    >
+      <Flex 
+        direction="column" 
+        align="center" 
+        height="100vh" 
+        justify="space-between"
+        display={{ base: "none", md: "flex" }}
+      >
+        <Flex my="20px" as="a" _hover={{ cursor: "pointer" }}>
+          <Heading as="h2" fontSize={{base: "md", md: "lg" }} color="white">
+            ジムログ
+          </Heading>
+        </Flex>
+        <Flex direction="column" align="center" justify="center">
+          <Text color="white">{user?.email}</Text>
+          <LogoutButton />
+        </Flex>
+      </Flex>
+    </Box>
+  )
+})
+
+```
+
+### app/components/organisms/layouts/FooterNav.tsx
+
+```
+import { Flex, Text, useTheme } from '@chakra-ui/react'
+import React, { FC, memo } from 'react'
+import LogoutButton from '../../atoms/button/LogoutButton'
+import { useUserContext } from '@/app/functions/contexts/UserContext'
+
+export const FooterNav: FC = memo(() => {
+  const { user } = useUserContext()
+  const theme = useTheme()
+
+  return (
+    <Flex
+      width="100%"
+      py="10px"
+      direction="row"
+      justify="space-around"
+      align="center"
+      bg={theme.colors.brand.gradient}
+      position="fixed"
+      bottom="0"
+    >
+      <Text color="white">{user?.email}</Text>
+      <LogoutButton />
+    </Flex>
+  )
+})
+
+```
+
 ### app/components/organisms/layouts/Header.tsx
 
 ```
@@ -895,12 +984,11 @@ import { useTheme } from '@chakra-ui/react';
 import MenuIconButton from '../../atoms/button/MenuIconButton';
 import MenuDrawer from '../../molecules/MenuDrawer';
 import LogoutButton from '../../atoms/button/LogoutButton';
-import { useAppContext } from '@/app/functions/contexts/AppContext';
+import { useUserContext } from '@/app/functions/contexts/UserContext';
 
 export const Header: FC = memo(() => {
 
-  const { user } = useAppContext()
-  console.log(user)
+  const { user } = useUserContext()
   const theme = useTheme()
   
   const { isOpen, onOpen, onClose } = useDisclosure()
@@ -944,7 +1032,7 @@ import type { Metadata } from "next";
 import { Inter } from "next/font/google";
 import { DesignProvider } from "./providers/designProvider";
 import "./globals.css";
-import { AppProvider } from "./functions/contexts/AppContext";
+import { UserProvider } from "./functions/contexts/UserContext";
 
 const inter = Inter({ subsets: ["latin"] });
 
@@ -961,11 +1049,11 @@ export default function RootLayout({
   return (
     <html lang="en">
       <body className={inter.className}>
-        <AppProvider>
+        <UserProvider>
           <DesignProvider>
             {children}
           </DesignProvider>
-        </AppProvider>
+        </UserProvider>
       </body>
     </html>
   );
@@ -974,57 +1062,94 @@ export default function RootLayout({
 
 ```
 
-### app/functions/contexts/AppContext.tsx
+### app/functions/contexts/UserContext.tsx
 
 ```
 "use client"
 
-import { User, onAuthStateChanged } from "firebase/auth";
+import { onAuthStateChanged } from "firebase/auth";
 import { ReactNode, createContext, useContext, useEffect, useState } from "react";
 import { auth } from "../libs/firebase";
+import axios from "axios";
+import { API } from "../constants/apis";
+import { useRouter } from "next/navigation";
 
-type AppProviderProps = {
+type UserProviderProps = {
   children: ReactNode
 }
 
-type AppContextType = {
+type User = {
+  email: string | null,
+  uid: string | null,
+}
+
+type UserContextType = {
   user: User | null,
-  setUser: React.Dispatch<React.SetStateAction<User | null>>
+  setUser: React.Dispatch<React.SetStateAction<User | null>>,
+  loading: boolean
 }
 
 const defaultContextData = {
   user: null,
-  setUser: () => {}
+  setUser: () => {},
+  loading: false
 }
 
-const AppContext = createContext<AppContextType>(defaultContextData)
+const UserContext = createContext<UserContextType>(defaultContextData)
 
 // 状態をグローバルに管理
-export function AppProvider({children}: AppProviderProps) {
+export function UserProvider({children}: UserProviderProps) {
   const [user, setUser] = useState<User | null>(null)
+  const [loading, setLoading] = useState<boolean>(true)
+  const router = useRouter()
 
-  // ログインの状態を管理
+  // ログインの状態をチェック
   useEffect(() => {
-    const unsubscribe = onAuthStateChanged(auth, (newUser) => {
-      setUser(newUser)
-    })
-    // アンマウント時に状態管理の関数をストップ=メモリリークを防ぐ
-    return () => {
-      unsubscribe()
+    const checkSession = async () => {
+      try {
+        const url = API.session
+        const response = await axios.get(url, { withCredentials: true })
+        console.log("コンテキスト発火", response)
+        if(response.data.uid) {
+          setUser({email: response.data.email, uid: response.data.uid})
+        }
+      } catch(error) {
+        setUser(null)
+        router.push("/auth/login")
+      } finally {
+        setLoading(false)
+      }
     }
-  }, [])
+    checkSession()
+
+    // firebaseの認証状態の変化を監視
+    // const unsubscribe = auth.onAuthStateChanged(async (firebaseUser) => {
+    //   if (firebaseUser) {
+    //     const idToken = await firebaseUser.getIdToken();
+    //     await axios.post("/login", { idToken }, { withCredentials: true });
+    //     setUser({ email: firebaseUser.email, uid: firebaseUser.uid });
+    //   } else {
+    //     setUser(null);
+    //     router.push("/auth/login")
+    //   }
+    //   setLoading(false);
+    // });
+    // // リスナーを解除
+    // return () => unsubscribe()
+
+  }, [router])
 
   return (
-    <AppContext.Provider 
-      value={{ user, setUser }}
+    <UserContext.Provider 
+      value={{ user, setUser, loading }}
     >
       {children}
-    </AppContext.Provider>
+    </UserContext.Provider>
   )
 }
 
-export function useAppContext() {
-  return useContext(AppContext)
+export function useUserContext() {
+  return useContext(UserContext)
 }
 
 
@@ -1040,6 +1165,7 @@ export const API = {
   userRegister: `${apiUrl}/user`,
   login: `${apiUrl}/login`,
   logout: `${apiUrl}/logout`,
+  session: `${apiUrl}/session`
 }
 
 ```
@@ -1075,13 +1201,14 @@ export const auth = getAuth(app);
 ### app/page.tsx
 
 ```
-import HeaderLayout from "./components/templates/HeaderLayout";
+"use client"
+import SideNavLayout from "./components/templates/SideNavLayout";
 
 export default function Home() {
   return (
-    <HeaderLayout>
+    <SideNavLayout>
       <p>Top</p>
-    </HeaderLayout>
+    </SideNavLayout>
   );
 }
 
@@ -1307,6 +1434,7 @@ CMD ["npm", "run", "start"]
         "firebase": "^10.12.2",
         "framer-motion": "^11.2.10",
         "next": "14.2.3",
+        "nookies": "^2.5.2",
         "react": "^18",
         "react-dom": "^18",
         "react-hook-form": "^7.51.5",
@@ -4448,6 +4576,14 @@ CMD ["npm", "run", "start"]
       "resolved": "https://registry.npmjs.org/convert-source-map/-/convert-source-map-1.9.0.tgz",
       "integrity": "sha512-ASFBup0Mz1uyiIjANan1jzLQami9z1PoYSZCiiYW2FczPbenXc45FZdBZLzOT+r6+iciuEModtmCti+hjaAk0A=="
     },
+    "node_modules/cookie": {
+      "version": "0.4.2",
+      "resolved": "https://registry.npmjs.org/cookie/-/cookie-0.4.2.tgz",
+      "integrity": "sha512-aSWTXFzaKWkvHO1Ny/s+ePFpvKsPnjc551iI41v3ny/ow6tBG5Vd+FuqGNhh1LxOmVzOlGUriIlOaokOvhaStA==",
+      "engines": {
+        "node": ">= 0.6"
+      }
+    },
     "node_modules/copy-to-clipboard": {
       "version": "3.3.3",
       "resolved": "https://registry.npmjs.org/copy-to-clipboard/-/copy-to-clipboard-3.3.3.tgz",
@@ -6696,6 +6832,15 @@ CMD ["npm", "run", "start"]
         }
       }
     },
+    "node_modules/nookies": {
+      "version": "2.5.2",
+      "resolved": "https://registry.npmjs.org/nookies/-/nookies-2.5.2.tgz",
+      "integrity": "sha512-x0TRSaosAEonNKyCrShoUaJ5rrT5KHRNZ5DwPCuizjgrnkpE5DRf3VL7AyyQin4htict92X1EQ7ejDbaHDVdYA==",
+      "dependencies": {
+        "cookie": "^0.4.1",
+        "set-cookie-parser": "^2.4.6"
+      }
+    },
     "node_modules/object-assign": {
       "version": "4.1.1",
       "resolved": "https://registry.npmjs.org/object-assign/-/object-assign-4.1.1.tgz",
@@ -7473,6 +7618,11 @@ CMD ["npm", "run", "start"]
       "engines": {
         "node": ">=10"
       }
+    },
+    "node_modules/set-cookie-parser": {
+      "version": "2.6.0",
+      "resolved": "https://registry.npmjs.org/set-cookie-parser/-/set-cookie-parser-2.6.0.tgz",
+      "integrity": "sha512-RVnVQxTXuerk653XfuliOxBP81Sf0+qfQE73LIYKcyMYHG94AuH0kgrQpRDuTZnSmjpysHmzxJXKNfa6PjFhyQ=="
     },
     "node_modules/set-function-length": {
       "version": "1.2.2",
@@ -8412,6 +8562,7 @@ CMD ["npm", "run", "start"]
     "firebase": "^10.12.2",
     "framer-motion": "^11.2.10",
     "next": "14.2.3",
+    "nookies": "^2.5.2",
     "react": "^18",
     "react-dom": "^18",
     "react-hook-form": "^7.51.5",

@@ -1,21 +1,10 @@
 "use client"
-
-import { useRouter } from "next/navigation";
-import HeaderLayout from "./components/templates/HeaderLayout";
-import { useAppContext } from "./functions/contexts/AppContext";
+import SideNavLayout from "./components/templates/SideNavLayout";
 
 export default function Home() {
-  const router = useRouter()
-  const { user } = useAppContext()
-  if(!user) {
-    router.push("/auth/login")
-  }
-  if (!user) {
-    return null  // リダイレクトされる前に一瞬表示されるものを防ぐ
-  }
   return (
-    <HeaderLayout>
+    <SideNavLayout>
       <p>Top</p>
-    </HeaderLayout>
+    </SideNavLayout>
   );
 }

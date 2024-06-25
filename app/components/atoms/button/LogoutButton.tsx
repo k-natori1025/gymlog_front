@@ -24,8 +24,8 @@ const LogoutButton:FC = memo(() => {
   }
   return (
     <Button colorScheme='white' variant='ghost' onClick={handleLogout}>
-      <Text fontSize="sm">ログアウト</Text>
-      <IoMdLogOut/>
+      <Text fontSize="sm" color="white">ログアウト</Text>
+      <IoMdLogOut color="white"/>
     </Button>
   )
 })
