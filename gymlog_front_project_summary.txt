@@ -6,12 +6,16 @@
   - app/
     - favicon.ico (binary file)
     - (pages)/
+      - record/
+        - page.tsx
       - auth/
         - register/
           - page.tsx
         - login/
           - page.tsx
-      - about/
+      - ai_coach/
+        - page.tsx
+      - log/
         - page.tsx
     - providers/
       - designProvider.tsx
@@ -20,16 +24,25 @@
         - components/
           - LoginForm.tsx
           - RegisterForm.tsx
+          - AuthGuard.tsx
+          - SocialLoginButton.tsx
+      - ai_coach/
+        - AiCoachForm.tsx
+      - workout/
+        - WorkoutForm.tsx
     - page.module.css
     - styles/
       - theme.ts
     - components/
       - molecules/
         - MenuDrawer.tsx
+        - MuscleGroupSelectore.tsx
       - atoms/
         - button/
           - LogoutButton.tsx
           - PrimaryButton.tsx
+          - NavigationButton.tsx
+          - LoadingSpinner.tsx
           - MenuIconButton.tsx
       - templates/
         - HeaderLayout.tsx
@@ -43,7 +56,7 @@
     - functions/
       - types/
       - contexts/
-        - UserContext.tsx
+        - AuthContext.tsx
       - constants/
         - apis.ts
       - repositories/
@@ -57,6 +70,14 @@
   - README.md
   - Dockerfile.dev
   - public/
+    - traininglog_logo1.png (binary file)
+    - google_icon.png (binary file)
+    - gymlog_logo2.png (binary file)
+    - gymlog_logo3.png (binary file)
+    - traininglog_logo2.png (binary file)
+    - gymlog_logo1.png (binary file)
+    - gymlog_circle_logo.png (binary file)
+    - gymlog_logo_with_color.png (binary file)
     - vercel.svg
     - next.svg
   - package-lock.json
@@ -66,6 +87,29 @@
   - .eslintrc.json
 
 ## File Contents
+
+### app/(pages)/record/page.tsx
+
+```
+"use client"
+
+import SideNavLayout from '@/app/components/templates/SideNavLayout'
+import { WorkoutForm } from '@/app/features/workout/WorkoutForm'
+import React from 'react'
+
+const Record = () => {
+  return (
+      <div>
+        <SideNavLayout>
+          <WorkoutForm />
+        </SideNavLayout>
+      </div>
+  )
+}
+
+export default Record
+
+```
 
 ### app/(pages)/auth/register/page.tsx
 
@@ -107,25 +151,54 @@ export default Login
 
 ```
 
-### app/(pages)/about/page.tsx
+### app/(pages)/ai_coach/page.tsx
 
 ```
 "use client"
 
-import SideNavLayout from '@/app/components/templates/SideNavLayout'
 import React from 'react'
+import SideNavLayout from '@/app/components/templates/SideNavLayout'
+import { Box, Flex, VStack } from '@chakra-ui/react'
+import { AiCoachForm } from '@/app/features/ai_coach/AiCoachForm'
 
-const About = () => {
+const AiCoach = () => {
+
   return (
-      <div>
+    <div>
         <SideNavLayout>
-          <p>about</p>
+          <Box mt={10} minHeight="100vh">
+            <VStack>
+              <AiCoachForm />
+            </VStack>
+          </Box>
         </SideNavLayout>
       </div>
   )
 }
 
-export default About
+export default AiCoach
+
+```
+
+### app/(pages)/log/page.tsx
+
+```
+ "use client"
+
+import SideNavLayout from '@/app/components/templates/SideNavLayout'
+import React from 'react'
+
+const  Log = () => {
+  return (
+      <div>
+        <SideNavLayout>
+          <p>ログ</p>
+        </SideNavLayout>
+      </div>
+  )
+}
+
+export default Log
 
 ```
 
@@ -158,13 +231,11 @@ export function DesignProvider({
 
 import React, { FC, memo, useState } from 'react'
 import { PrimaryButton } from '@/app/components/atoms/button/PrimaryButton'
-import { Box, Button, Divider, FormControl, FormHelperText, Heading, Input, InputGroup, InputRightElement, Link, Stack, Text } from '@chakra-ui/react'
+import { AbsoluteCenter, Box, Button, Divider, FormControl, FormHelperText, Heading, Input, InputGroup, InputRightElement, Link, Stack, Text } from '@chakra-ui/react'
 import { SubmitHandler, useForm } from 'react-hook-form'
-import { signInWithEmailAndPassword } from 'firebase/auth'
-import { auth } from '@/app/functions/libs/firebase'
-import { useRouter } from 'next/navigation'
-import { API } from '@/app/functions/constants/apis'
-import axios from 'axios'
+import { LoadingSpinner } from '@/app/components/atoms/button/LoadingSpinner'
+import { SocialLoginButton } from './SocialLoginButton'
+import { useAuthContext } from '@/app/functions/contexts/AuthContext'
 
 type Inputs = {
   userName: string
@@ -175,8 +246,7 @@ type Inputs = {
 export const LoginForm: FC = memo(() => {
   
   const [show, setShow] = useState(false)
-
-  const router = useRouter()
+  const { login, loading } = useAuthContext()
   
   const handleClick = () => {
     setShow(!show)
@@ -189,34 +259,19 @@ export const LoginForm: FC = memo(() => {
   } = useForm<Inputs>()
 
   const onSubmit: SubmitHandler<Inputs> = async(data) => {
-    try {
-      const userCredential = await signInWithEmailAndPassword(auth, data.email, data.password)
-      const token = await userCredential.user.getIdToken();
-      const url = API.login
-      await axios.post(url, {}, {
-        headers: { 
-          'Content-Type': 'application/json',
-          'Authorization': `Bearer ${token}`
-        },
-        withCredentials: true
-      })
-      router.push('/')
-    } catch(error: any) {
-      if(error.code === "auth/invalid-credential") {
-        alert("メールアドレスもしくはパスワードが間違っています。")
-      } else {
-        alert(error.message)
-        console.log("Logged in Error", error)
-      }
-    }
+    console.log("ローディング（前）:", loading)
+    await login('email', { email: data.email, password: data.password });
+    console.log("ローディング（後）:", loading)
   }
+  const handleGoogleLogin = () => login('google');
+  const handleTwitterLogin = () => login('twitter');
 
   return (
-    <Box bg="white" w="md" p={6} borderRadius="lg" shadow="xl">
+    <>
+      <Box bg="white" w="md" p={6} borderRadius="lg" shadow="xl">
         <Heading as="h2" size="lg" textAlign="center">ログイン</Heading>
-        <Divider my={4} />
         <FormControl as="form" onSubmit={handleSubmit(onSubmit)}>
-          <Stack spacing={6} py={4} px={6}>
+          <Stack spacing={6}>
             <Box> 
               <Text fontSize="sm">メールアドレス</Text>
               <Input 
@@ -263,14 +318,37 @@ export const LoginForm: FC = memo(() => {
                 </Text>
               )}     
             </Box>
-            <PrimaryButton type="submit">ユーザー登録</PrimaryButton>
+            <PrimaryButton type="submit">ログイン</PrimaryButton>
           </Stack>
         </FormControl>
+        <Box position='relative' py={6} >
+          <Divider borderWidth={1} />
+          <AbsoluteCenter bg='white' px='4'>
+            または
+          </AbsoluteCenter>
+        </Box>
+        <Stack spacing={4}>
+          <SocialLoginButton
+            provider="google"
+            onClick={handleGoogleLogin}
+          >
+            Googleでログイン
+          </SocialLoginButton>
+          <SocialLoginButton
+            provider="twitter"
+            onClick={handleTwitterLogin}
+          >
+            Twitterでログイン
+          </SocialLoginButton>
+        </Stack>
         <Box textAlign="center">
           <Text>まだユーザー登録をしていませんか？</Text>
           <Link href="/auth/register" color="blue.300">新規登録ページへ</Link>
         </Box>
       </Box>
+      {loading&& <LoadingSpinner text="ログイン中..." />}
+    </>
+    
   )
 })
 
@@ -284,13 +362,10 @@ export const LoginForm: FC = memo(() => {
 
 import React, { FC, memo, useState } from 'react'
 import { PrimaryButton } from '@/app/components/atoms/button/PrimaryButton'
-import { Box, Button, Divider, FormControl, FormHelperText, Heading, Input, InputGroup, InputRightElement, Link, Stack, Text } from '@chakra-ui/react'
+import { Box, Button, FormControl, FormHelperText, Heading, Input, InputGroup, InputRightElement, Link, Stack, Text } from '@chakra-ui/react'
 import { SubmitHandler, useForm } from 'react-hook-form'
-import { createUserWithEmailAndPassword } from 'firebase/auth'
-import { auth } from '@/app/functions/libs/firebase'
-import axios from 'axios'
-import { API } from '@/app/functions/constants/apis'
-import { useRouter } from 'next/navigation'
+import { useAuthContext } from '@/app/functions/contexts/AuthContext'
+import { LoadingSpinner } from '@/app/components/atoms/button/LoadingSpinner'
 
 type Inputs = {
   userName: string
@@ -301,10 +376,7 @@ type Inputs = {
 export const RegisterForm: FC = memo(() => {
   
   const [show, setShow] = useState(false)
-  const [userName, setUserName] = useState("")
-  const [email, setEmail] = useState("")
-  const [password, setPassword] = useState("")
-  const router = useRouter()
+  const { authRegister, loading } = useAuthContext()
   const handleClick = () => {
     setShow(!show)
   }
@@ -316,32 +388,18 @@ export const RegisterForm: FC = memo(() => {
   } = useForm<Inputs>()
 
   const onSubmit: SubmitHandler<Inputs> = async (data) => {
-    try {
-      const url = API.userRegister
-      const response = await axios.post(url, {
-        name: userName,
-        email,
-        password
-      })
-      console.log(response, "fastapiへのユーザー登録完了")
-      const userCredential = await createUserWithEmailAndPassword(auth, data.email, data.password)
-      const user = userCredential.user
-      console.log("firebaseへのユーザー登録完了")
-      router.push("/")
-    } catch(error: any) {
-        if(error.code === "auth/email-already-in-use") {
-          alert("このメールアドレスはすでに使用されています。")
-        } else {
-          alert(error.message)
-        }
-    }
+    await authRegister(
+      data.email, 
+      data.password,
+      data.userName,
+    )
   }
   return (
-    <Box bg="white" w="md" p={6} borderRadius="lg" shadow="xl">
+    <>
+      <Box bg="white" w="md" p={6} borderRadius="lg" shadow="xl">
         <Heading as="h2" size="lg" textAlign="center">新規登録</Heading>
-        <Divider my={4} />
         <FormControl as="form" onSubmit={handleSubmit(onSubmit)}>
-          <Stack spacing={6} py={4} px={6}>
+          <Stack spacing={6} py={4}>
             <Box>
               <Text fontSize="sm">ユーザー名</Text>
               <Input
@@ -350,7 +408,6 @@ export const RegisterForm: FC = memo(() => {
                 })} 
                 placeholder="ユーザー名" 
                 type="text"
-                onChange={(e) => {setUserName(e.target.value)}}
               />
               {errors.userName && (
                 <Text color="red.500" fontSize="sm">
@@ -370,7 +427,6 @@ export const RegisterForm: FC = memo(() => {
                 })} 
                 placeholder="メールアドレス" 
                 type="email"
-                onChange={(e) => {setEmail(e.target.value)}}
               />
               {errors.email && (
                 <Text color="red.500" fontSize="sm">
@@ -392,7 +448,6 @@ export const RegisterForm: FC = memo(() => {
                   })} 
                   placeholder="パスワード" 
                   type={show ? 'text' : 'password'}
-                  onChange={(e) => {setPassword(e.target.value)}}
                 />
                 <InputRightElement width='4.5rem'>
                   <Button h='1.75rem' size='sm' onClick={handleClick}>
@@ -414,9 +469,504 @@ export const RegisterForm: FC = memo(() => {
           <Link href="/auth/login" color="blue.300">ログインページへ</Link>
         </Box>
       </Box>
+      {loading&& <LoadingSpinner text="新規ユーザ登録中..." />}
+    </>
   )
 })
 
+
+```
+
+### app/features/auth/components/AuthGuard.tsx
+
+```
+"use client"
+
+import { LoadingSpinner } from '@/app/components/atoms/button/LoadingSpinner';
+import { useAuthContext } from '@/app/functions/contexts/AuthContext';
+import { usePathname, useRouter } from 'next/navigation';
+
+import { useEffect } from 'react';
+
+const publicPaths = ['/auth/login', '/auth/register']; // 認証不要のパス
+
+export function AuthGuard({ children }: { children: React.ReactNode }) {
+  const { user, loading } = useAuthContext();
+  const router = useRouter()
+  const pathName = usePathname()
+
+  useEffect(() => {
+    if (!loading && !user && !publicPaths.includes(pathName)) {
+      router.push('/auth/login');
+    }
+  }, [user, loading, router, pathName]);
+
+  if (loading) {
+    return (
+      <LoadingSpinner />
+    )
+  }
+
+  if (!user && !publicPaths.includes(pathName)) {
+    return null; // 認証が必要なページで未認証の場合は何も表示しない
+  }
+
+  return <>{children}</>;
+}
+
+```
+
+### app/features/auth/components/SocialLoginButton.tsx
+
+```
+import { Button, ButtonProps, Image } from "@chakra-ui/react";
+import { FC, ReactElement, ReactNode, memo } from "react";
+import { FaGoogle, FaTwitter } from "react-icons/fa";
+
+
+interface SocialLoginButtonProps {
+  provider: "google" | "twitter"
+  onClick: () => void
+  children: ReactNode
+}
+
+export const SocialLoginButton: FC<SocialLoginButtonProps> = memo(({ provider, onClick, children}) => {
+  const getIcon = (): ReactElement => {
+    switch (provider) {
+      case "google":
+        return <Image src="/google_icon.png" alt="Google Logo" boxSize="40px" />
+      case "twitter":
+        return <FaTwitter />
+      default:
+        return <span style={{ width: '1em', height: '1em', display: 'inline-block' }} />
+    }
+  }
+  
+  const getStyles = (): ButtonProps => {
+    switch (provider) {
+      case 'google':
+        return {
+          bg: '#F2F2F2',
+          color: '#1F1F1F',
+          boxShadow: 'md',
+          border: '1px solid',
+          borderColor: 'gray.200',
+          _hover: { bg: 'gray.100' },
+        };
+      case 'twitter':
+        return {
+          bg: '#1DA1F2',
+          color: 'white',
+          _hover: { bg: '#1a91da' },
+        };
+      default:
+        return { bg: 'gray.100', color: 'black' };
+    }
+  }
+
+  return (
+    <Button
+      leftIcon={getIcon()}
+      onClick={onClick}
+      w="100%"
+      {...getStyles()}
+      _hover={{opacity: 0.8}}
+    >
+      {children}
+    </Button>
+
+  )
+})
+
+```
+
+### app/features/ai_coach/AiCoachForm.tsx
+
+```
+"use client"
+
+import React, { FC, memo, useState } from 'react'
+import { PrimaryButton } from '@/app/components/atoms/button/PrimaryButton'
+import { Box, Flex, FormControl, FormLabel, Grid, Heading, NumberDecrementStepper, NumberIncrementStepper, NumberInput, NumberInputField, NumberInputStepper, Select, Text, useToast } from '@chakra-ui/react'
+import { Controller, SubmitHandler, useForm } from 'react-hook-form'
+import axios from 'axios'
+import { API } from '@/app/functions/constants/apis'
+import { MuscleGroupSelector } from '@/app/components/molecules/MuscleGroupSelectore'
+
+interface AICoachFormData {
+  gender: string;
+  age: number;
+  trainingLocation: 'gym' | 'home';
+  goal: string;
+  trainingDaysPerWeek: number;
+  exerciseVariety: number;
+  muscleGroups: string[];
+}
+
+export const  AiCoachForm: FC = memo(() => {
+
+  const { control, handleSubmit, formState: { errors } } = useForm<AICoachFormData>();
+  const [aiResponse, setAiResponse] = useState<string>('');
+  const [isLoading, setIsLoading] = useState<boolean>(false);
+  const toast = useToast();
+
+  const onSubmit = async (data: AICoachFormData) => {
+    setIsLoading(true);
+    try {
+      const url = API.aiCoach
+      const response = await axios.post(url, {
+        gender: data.gender,
+        age: data.age,
+        training_location: data.trainingLocation,
+        goal: data.goal,
+        training_days_per_week: data.trainingDaysPerWeek,
+        exercise_variety: data.exerciseVariety,
+        muscle_groups: data.muscleGroups
+      });
+      console.log("レスポンス:", response)
+      console.log("AIレスポンス:", response.data)
+      setAiResponse(response.data.ai_response);
+      toast({
+        title: 'AI Coach Response Generated',
+        description: 'Your personalized plan is ready!',
+        status: 'success',
+        duration: 5000,
+        isClosable: true,
+      });
+    } catch (error) {
+      console.error('Error fetching AI coach response:', error);
+      toast({
+        title: 'Error',
+        description: 'Failed to generate AI coach response. Please try again.',
+        status: 'error',
+        duration: 5000,
+        isClosable: true,
+      });
+    } finally {
+      setIsLoading(false);
+    }
+  };
+
+  return (
+    <Box bg="white" w="80%" p={5} shadow="xl">
+        <Heading as="h2" size="md" textAlign="center">AIコーチ</Heading>
+        <form onSubmit={handleSubmit(onSubmit)}>
+          <Grid templateColumns={{ base: "repeat(2, 1fr)", md: "repeat(3, 1fr)" }} gap={6}>
+            <Controller
+              name="gender"
+              control={control}
+              rules={{ required: '必須項目です' }}
+              render={({ field }) => (
+                <FormControl isInvalid={!!errors.gender}>
+                  <FormLabel>性別</FormLabel>
+                  <Select {...field} placeholder="性別を選択">
+                    <option value="male">男性</option>
+                    <option value="female">女性</option>
+                    <option value="other">その他</option>
+                  </Select>
+                  <Text color="red.500">{errors.gender?.message}</Text>
+                </FormControl>
+              )}
+            />
+
+            <Controller
+              name="age"
+              control={control}
+              rules={{ required: '必須項目です'}}
+              render={({ field }) => (
+                <FormControl isInvalid={!!errors.age}>
+                  <FormLabel>年齢</FormLabel>
+                  <Select placeholder="年齢を選択" {...field}>
+                    {Array.from({ length: 71 }, (_, i) => i + 10).map((age) => (
+                      <option key={age} value={age}>
+                        {age}
+                      </option>
+                    ))}
+                  </Select>
+                  <Text color="red.500">{errors.age?.message}</Text>
+                </FormControl>
+              )}
+            />
+
+            <Controller
+              name="trainingLocation"
+              control={control}
+              rules={{ required: '必須項目です' }}
+              render={({ field }) => (
+                <FormControl isInvalid={!!errors.trainingLocation}>
+                  <FormLabel>トレーニング場所</FormLabel>
+                  <Select {...field} placeholder="トレーニング場所を選択">
+                    <option value="gym">ジム</option>
+                    <option value="home">家庭</option>
+                  </Select>
+                  <Text color="red.500">{errors.trainingLocation?.message}</Text>
+                </FormControl>
+              )}
+            />
+            <Controller
+              name="goal"
+              control={control}
+              rules={{ required: '必須項目です' }}
+              render={({ field }) => (
+                <FormControl isInvalid={!!errors.goal}>
+                  <FormLabel>トレーニングの目的</FormLabel>
+                  <Select {...field} placeholder="目的を選択">
+                    <option value="loseWight">体重を減らす</option>
+                    <option value="loseWeight">筋肉を増やす</option>
+                    <option value="loseWeight">筋肉を増やす</option>
+                  </Select>
+                  <Text color="red.500">{errors.goal?.message}</Text>
+                </FormControl>
+              )}
+            />
+            <Controller
+              name="trainingDaysPerWeek"
+              control={control}
+              rules={{ required: '必須項目です', min: { value: 1, message: 'Must be at least 1' }, max: { value: 7, message: 'Cannot exceed 7' } }}
+              render={({ field }) => (
+                <FormControl isInvalid={!!errors.trainingDaysPerWeek}>
+                  <FormLabel>トレーニング日数/週</FormLabel>
+                  <Select placeholder="日数を選択" {...field}>
+                    {Array.from({ length: 7 }, (_, i) => i + 1).map((days) => (
+                      <option key={days} value={days}>
+                        {days}
+                      </option>                      
+                    ))}
+                    <option value="おまかせ">おまかせ</option>
+                  </Select>
+                  <Text color="red.500">{errors.trainingDaysPerWeek?.message}</Text>
+                </FormControl>
+              )}
+            />
+            <Controller
+              name="exerciseVariety"
+              control={control}
+              rules={{ required: '必須項目です' }}
+              render={({ field }) => (
+                <FormControl isInvalid={!!errors.goal}>
+                  <FormLabel>1回のトレーニングの種目数</FormLabel>
+                  <Select placeholder="種目数を選択" {...field}>
+                    {Array.from({ length: 10 }, (_, i) => i + 1).map((variety) => (
+                      <option key={variety} value={variety}>
+                        {variety}
+                      </option>                      
+                    ))}
+                    <option value="おまかせ">おまかせ</option>
+                  </Select>
+                  <Text color="red.500">{errors.goal?.message}</Text>
+                </FormControl>
+              )}
+            />
+          </Grid>
+          <Flex mt={6}>
+            <Controller
+                name="muscleGroups"
+                control={control}
+                rules={{ required: '必須項目です' }}
+                render={({ field }) => (
+                  <MuscleGroupSelector 
+                    selectedGroups={field.value}
+                    onChange={field.onChange}
+                  />
+                )}
+              />
+          </Flex>
+          <Flex justifyContent="center" mt={6}>
+            <PrimaryButton type="submit" isLoading={isLoading}>
+              AIにトレーニングメニューを考えてもらう
+            </PrimaryButton>
+          </Flex>
+        </form>
+        {aiResponse && (
+          <Box marginTop={6}>
+            <Heading as="h3" size="md" marginBottom={3}>AI Coach Recommendation:</Heading>
+            <Text whiteSpace="pre-wrap">{aiResponse}</Text>
+          </Box>
+        )}
+      </Box>
+  )
+})
+
+
+```
+
+### app/features/workout/WorkoutForm.tsx
+
+```
+"use client"
+
+import React, { FC, memo, useEffect, useState } from 'react'
+import { PrimaryButton } from '@/app/components/atoms/button/PrimaryButton'
+import { Box, Button, Flex, FormControl, FormLabel, Grid, Heading, NumberDecrementStepper, NumberIncrementStepper, NumberInput, NumberInputField, NumberInputStepper, Select, Text, VStack, useToast } from '@chakra-ui/react'
+import { Controller, SubmitHandler, useForm } from 'react-hook-form'
+import axios from 'axios'
+import { API } from '@/app/functions/constants/apis'
+import { MuscleGroupSelector } from '@/app/components/molecules/MuscleGroupSelectore'
+
+
+interface MuscleGroup {
+  id: number;
+  name: string;
+}
+
+interface Exercise {
+  id: number;
+  name: string;
+  muscle_group_id: number;
+}
+
+interface WorkoutFormData {
+  muscle_group_id: number;
+  exercise_id: number;
+  weight: number;
+  reps: number;
+  sets: number;
+}
+
+
+export const WorkoutForm: FC = memo(() => {
+  const [muscleGroups, setMuscleGroups] = useState<MuscleGroup[]>([]);
+  const [exercises, setExercises] = useState<Exercise[]>([]);
+  const [filteredExercises, setFilteredExercises] = useState<Exercise[]>([]);
+
+  const { control, handleSubmit, watch } = useForm<WorkoutFormData>();
+
+  const selectedMuscleGroupId = watch('muscle_group_id');
+
+  useEffect(() => {
+    // Fetch muscle groups and exercises from API
+    const fetchData = async () => {
+      const [muscleGroupsResponse, exercisesResponse] = await Promise.all([
+        axios.get('/api/muscle-groups'),
+        axios.get('/api/exercises'),
+      ]);
+      setMuscleGroups(muscleGroupsResponse.data);
+      setExercises(exercisesResponse.data);
+    };
+    fetchData();
+  }, []);
+
+  useEffect(() => {
+    if (selectedMuscleGroupId) {
+      const filtered = exercises.filter(
+        (exercise) => exercise.muscle_group_id === selectedMuscleGroupId
+      );
+      setFilteredExercises(filtered);
+    }
+  }, [selectedMuscleGroupId, exercises]);
+
+  const onSubmit = async (data: WorkoutFormData) => {
+    try {
+      await axios.post('/api/workout-logs', data);
+      alert('Workout log saved successfully!');
+    } catch (error) {
+      console.error('Error saving workout log:', error);
+      alert('Failed to save workout log. Please try again.');
+    }
+  };
+
+  return (
+    <Box maxWidth="500px" margin="auto">
+      <form onSubmit={handleSubmit(onSubmit)}>
+        <VStack spacing={4}>
+          <FormControl>
+            <FormLabel>Muscle Group</FormLabel>
+            <Controller
+              name="muscle_group_id"
+              control={control}
+              rules={{ required: true }}
+              render={({ field }) => (
+                <Select {...field} placeholder="Select muscle group">
+                  {muscleGroups.map((group) => (
+                    <option key={group.id} value={group.id}>
+                      {group.name}
+                    </option>
+                  ))}
+                </Select>
+              )}
+            />
+          </FormControl>
+
+          <FormControl>
+            <FormLabel>Exercise</FormLabel>
+            <Controller
+              name="exercise_id"
+              control={control}
+              rules={{ required: true }}
+              render={({ field }) => (
+                <Select {...field} placeholder="Select exercise" isDisabled={!selectedMuscleGroupId}>
+                  {filteredExercises.map((exercise) => (
+                    <option key={exercise.id} value={exercise.id}>
+                      {exercise.name}
+                    </option>
+                  ))}
+                </Select>
+              )}
+            />
+          </FormControl>
+
+          <FormControl>
+            <FormLabel>Weight (kg)</FormLabel>
+            <Controller
+              name="weight"
+              control={control}
+              rules={{ required: true, min: 0 }}
+              render={({ field }) => (
+                <NumberInput {...field} min={0}>
+                  <NumberInputField />
+                  <NumberInputStepper>
+                    <NumberIncrementStepper />
+                    <NumberDecrementStepper />
+                  </NumberInputStepper>
+                </NumberInput>
+              )}
+            />
+          </FormControl>
+
+          <FormControl>
+            <FormLabel>Reps</FormLabel>
+            <Controller
+              name="reps"
+              control={control}
+              rules={{ required: true, min: 1 }}
+              render={({ field }) => (
+                <NumberInput {...field} min={1}>
+                  <NumberInputField />
+                  <NumberInputStepper>
+                    <NumberIncrementStepper />
+                    <NumberDecrementStepper />
+                  </NumberInputStepper>
+                </NumberInput>
+              )}
+            />
+          </FormControl>
+
+          <FormControl>
+            <FormLabel>Sets</FormLabel>
+            <Controller
+              name="sets"
+              control={control}
+              rules={{ required: true, min: 1 }}
+              render={({ field }) => (
+                <NumberInput {...field} min={1}>
+                  <NumberInputField />
+                  <NumberInputStepper>
+                    <NumberIncrementStepper />
+                    <NumberDecrementStepper />
+                  </NumberInputStepper>
+                </NumberInput>
+              )}
+            />
+          </FormControl>
+
+          <Button type="submit" colorScheme="blue">
+            Save Workout Log
+          </Button>
+        </VStack>
+      </form>
+    </Box>
+  );
+});
 
 ```
 
@@ -659,7 +1209,7 @@ export const RegisterForm: FC = memo(() => {
 ### app/styles/theme.ts
 
 ```
-import { background, extendTheme } from "@chakra-ui/react";
+import { extendTheme } from "@chakra-ui/react";
 
 const theme = extendTheme({
   // グローバルに適用されるスタイル
@@ -674,6 +1224,8 @@ const theme = extendTheme({
   // アプリケーション全体で使う基本となる色
   colors: {
     brand: {
+      // gradient: "linear-gradient(to right, rgba(66, 153, 225, 1), rgba(128, 90, 213, 1))",
+      // gradientHover: "linear-gradient(to right, rgba(66, 153, 225, 0.8), rgba(128, 90, 213, 0.8))",
       gradient: 'linear-gradient(90deg, rgba(85, 85, 85, 1) 0%, rgba(0, 0, 0, 1) 100%)',
       gradientHover: "linear-gradient(90deg, rgba(85, 85, 85, 0.7) 0%, rgba(0, 0, 0, 0.7) 100%)",
     }
@@ -745,32 +1297,94 @@ export default MenuDrawer
 
 ```
 
+### app/components/molecules/MuscleGroupSelectore.tsx
+
+```
+import { Badge, FormControl, FormLabel, HStack, useColorModeValue } from "@chakra-ui/react";
+import { FC, memo } from "react";
+
+
+interface MuscleGroupSelectorProps {
+  selectedGroups: string[]
+  onChange: (groups: string[]) => void
+  label?: string
+}
+
+const muscleGroups = [
+  "胸",
+  "背中",
+  "肩",
+  "腕",
+  "腹筋",
+  "お腹",
+  "お尻",
+  "太もも",
+  "カーフ",
+  "おまかせ"
+]
+
+export const MuscleGroupSelector:FC<MuscleGroupSelectorProps> = memo((props) => {
+  const {selectedGroups = [], onChange, label = "鍛えたい部位（複数選択可）" } = props
+  const activeBg = useColorModeValue('blue.500', 'blue.200');
+  const activeColor = useColorModeValue('white', 'gray.800');
+  const inactiveBg = useColorModeValue('gray.100', 'gray.600');
+  const inactiveColor = useColorModeValue('gray.800', 'white');
+
+  const toggleMuscleGroup = (group: string) => {
+    let newGroups: string[];
+
+    if (group === "おまかせ") {
+      newGroups = selectedGroups.includes("おまかせ") ? [] : ["おまかせ"];
+    } else {
+      if (selectedGroups.includes("おまかせ")) {
+        newGroups = [group];
+      } else if (selectedGroups.includes(group)) {
+        newGroups = selectedGroups.filter(g => g !== group);
+      } else {
+        newGroups = [...selectedGroups, group];
+      }
+    }
+
+    onChange(newGroups);
+  };
+  return (
+    <FormControl>
+      <FormLabel>{label}</FormLabel>
+      <HStack wrap="wrap" spacing={2}>
+        {muscleGroups.map((group) => (
+          <Badge
+            key={group}
+            px={3}
+            py={2}
+            borderRadius="full"
+            cursor="pointer"
+            onClick={() => toggleMuscleGroup(group)}
+            bg={selectedGroups.includes(group) ? activeBg : inactiveBg}
+            color={selectedGroups.includes(group) ? activeColor : inactiveColor}
+          >
+            {group}
+          </Badge>
+        ))}
+      </HStack>
+    </FormControl>
+  )
+})
+
+```
+
 ### app/components/atoms/button/LogoutButton.tsx
 
 ```
 import React, { FC, memo } from 'react'
 import { Button, Text } from '@chakra-ui/react';
 import { IoMdLogOut } from "react-icons/io";
-import { auth } from '@/app/functions/libs/firebase';
-import axios from 'axios';
-import { useRouter } from 'next/navigation';
-import { API } from '@/app/functions/constants/apis';
+import { useAuthContext } from '@/app/functions/contexts/AuthContext';
 
 
 const LogoutButton:FC = memo(() => {
-
-  const router = useRouter()
+  const { logout } = useAuthContext()
   const handleLogout = async() => {
-    try {
-      await auth.signOut();
-      const url = API.logout
-      await axios.post(url, {}, {
-        withCredentials: true
-      });
-      router.push('/auth/login');
-    } catch (error) {
-      console.error('Logout error:', error);
-    }
+    await logout()
   }
   return (
     <Button colorScheme='white' variant='ghost' onClick={handleLogout}>
@@ -795,18 +1409,115 @@ import React, { FC, ReactNode, memo } from 'react'
 type Props = {
   children: ReactNode
   type?: "button" | "submit" | "reset"
+  isLoading?: boolean
 }
 
 export const PrimaryButton: FC<Props> = memo((props) => {
 
-  const { children, type } = props
+  const { children, type, isLoading } = props
 
   return (
-    <Button variant="custom" type={type}>
+    <Button 
+      variant="custom" 
+      type={type}
+      isLoading={isLoading}
+    >
       {children}
     </Button>
   )
 })
+
+```
+
+### app/components/atoms/button/NavigationButton.tsx
+
+```
+import { Button, Icon } from "@chakra-ui/react"
+import { useRouter } from "next/navigation"
+import { FC, memo } from "react"
+import { IconType } from "react-icons"
+
+type Props = {
+  label: string
+  path: string
+  icon: IconType
+  iconSize: string
+}
+
+const NavigationButton:FC<Props> = memo((props) => {
+  const { label, path, icon, iconSize } = props
+
+  const router = useRouter()
+  const handleClick = () => {
+    router.push(path)
+  }
+
+  return (
+    <Button 
+      onClick={handleClick} 
+      w="100%"
+      bg="transparent"
+      _hover={{ bg: 'rgba(255, 255, 255, 0.2)' }}
+      _active={{ bg: 'rgba(255, 255, 255, 0.3)' }}
+      color="white"
+      leftIcon={icon && <Icon as={icon} boxSize={iconSize} />}
+      justifyContent="flex-start"
+    >
+      {label}
+    </Button>
+  )
+})
+
+export default NavigationButton
+
+```
+
+### app/components/atoms/button/LoadingSpinner.tsx
+
+```
+"use client"
+
+import React, { FC } from 'react';
+import { Spinner, Flex, Text, SpinnerProps, Box } from '@chakra-ui/react';
+
+interface LoadingSpinnerProps {
+  spinnerProps?: SpinnerProps;
+  text?: string;
+}
+
+export const LoadingSpinner: FC<LoadingSpinnerProps> = ({
+  text,
+}) => {
+  return (
+    <Box
+      position="fixed"
+      top={0}
+      left={0}
+      right={0}
+      bottom={0}
+      backgroundColor="rgba(0, 0, 0, 0.2)"
+      zIndex={9999}
+      display="flex"
+      alignItems="center"
+      justifyContent="center"
+    >
+      <Flex direction="column" align="center">
+        <Spinner
+          thickness="4px"
+          speed="0.65s"
+          emptyColor="gray.200"
+          color="teal.500"
+          size="xl"
+        />
+        {text && (
+          <Text mt={4} color="white" fontSize="lg">
+            {text}
+          </Text>
+        )}
+      </Flex>
+    </Box>
+  );
+};
 
 ```
 
@@ -869,7 +1580,7 @@ export default HeaderLayout
 ```
 import React, { FC, ReactNode, memo } from 'react'
 import { SideNav } from '../organisms/layouts/SideNav';
-import { Grid, GridItem } from '@chakra-ui/react';
+import { Box, Grid, GridItem } from '@chakra-ui/react';
 import { FooterNav } from '../organisms/layouts/FooterNav';
 
 type Props = {
@@ -880,17 +1591,34 @@ const SideNavLayout: FC<Props> = memo((props) => {
   const { children } = props
   return(
     <Grid
-      templateColumns={{ base: '1fr', md: '15% 1fr' }}
-      templateRows={{ base: '1fr auto', md: '1fr' }}
       height="100vh"
     >
-      <GridItem display={{ base: 'none', md: 'block' }}>
+      <GridItem 
+        display={{ base: 'none', md: 'block' }} //spの時にはサイドバー非表示
+        position={{ base: 'static', md: 'fixed' }}
+        top="0"
+        left="0"
+        height="100vh"
+        width={{ base: '100%', md: '15%' }}
+      >
         <SideNav />
       </GridItem>
-      <GridItem>
-        {children}
+      <GridItem
+        marginLeft={{ base: '0', md: '15%' }}
+        overflowY="auto"
+        height="100vh"
+      >
+        <Box>
+          {children}
+        </Box>
       </GridItem>
-        <GridItem display={{ base: 'block', md: 'none' }}>
+        <GridItem 
+          display={{ base: 'block', md: 'none' }} //spの時のみフッターを表示
+          position="fixed"
+          bottom="0"
+          left="0"
+          width="100%"
+        >
           <FooterNav />
         </GridItem>
     </Grid>
@@ -904,14 +1632,20 @@ export default SideNavLayout
 ### app/components/organisms/layouts/SideNav.tsx
 
 ```
-import { Box, Flex, Heading, Text, useTheme } from '@chakra-ui/react'
+import { Box, Flex, Image, Stack, Text, useTheme } from '@chakra-ui/react'
 import React, { FC, memo } from 'react'
 import LogoutButton from '../../atoms/button/LogoutButton'
-import { useUserContext } from '@/app/functions/contexts/UserContext'
+import NavigationButton from '../../atoms/button/NavigationButton'
+import { MdHome } from 'react-icons/md'
+import { IoIosAddCircle } from 'react-icons/io'
+import { BsGraphUpArrow } from 'react-icons/bs'
+import { FaBrain } from "react-icons/fa";
+import { useAuthContext } from '@/app/functions/contexts/AuthContext'
 
 export const SideNav:FC = memo(() => {
-  const { user } = useUserContext()
+  const { user } = useAuthContext()
   const theme = useTheme()
+  console.log("ユーザ情報:", user)
 
   return (
     <Box
@@ -924,15 +1658,24 @@ export const SideNav:FC = memo(() => {
         align="center" 
         height="100vh" 
         justify="space-between"
-        display={{ base: "none", md: "flex" }}
+        display={{ base: "none", md: "flex" }} //spの時は表示しない
       >
-        <Flex my="20px" as="a" _hover={{ cursor: "pointer" }}>
-          <Heading as="h2" fontSize={{base: "md", md: "lg" }} color="white">
-            ジムログ
-          </Heading>
+        <Flex direction="column" my="20px" as="a" _hover={{ cursor: "pointer" }}>
+          <Image src="/gymlog_logo3.png" alt="TrainingLog Logo" boxSize="90px" />
+          {/* <Heading as="h2" fontSize={{base: "md", md: "lg" }} color="white">
+            GymLog
+          </Heading> */}
+        </Flex>
+        <Flex flexGrow={1}>
+          <Stack direction="column" align="center" spacing={4} mt={4}>
+            <NavigationButton label="ホーム" path="/" icon={MdHome} iconSize="24px" />
+            <NavigationButton label="記録する" path="/record" icon={IoIosAddCircle} iconSize="24px" />
+            <NavigationButton label="レポート" path="/log" icon={BsGraphUpArrow} iconSize="24px" />
+            <NavigationButton label="AIコーチ" path="/ai_coach" icon={FaBrain} iconSize="24px" />
+          </Stack>
         </Flex>
         <Flex direction="column" align="center" justify="center">
-          <Text color="white">{user?.email}</Text>
+          <Text color="white">{user?.displayName}</Text>
           <LogoutButton />
         </Flex>
       </Flex>
@@ -948,10 +1691,10 @@ export const SideNav:FC = memo(() => {
 import { Flex, Text, useTheme } from '@chakra-ui/react'
 import React, { FC, memo } from 'react'
 import LogoutButton from '../../atoms/button/LogoutButton'
-import { useUserContext } from '@/app/functions/contexts/UserContext'
+import { useAuthContext } from '@/app/functions/contexts/AuthContext'
 
 export const FooterNav: FC = memo(() => {
-  const { user } = useUserContext()
+  const { user } = useAuthContext()
   const theme = useTheme()
 
   return (
@@ -984,11 +1727,11 @@ import { useTheme } from '@chakra-ui/react';
 import MenuIconButton from '../../atoms/button/MenuIconButton';
 import MenuDrawer from '../../molecules/MenuDrawer';
 import LogoutButton from '../../atoms/button/LogoutButton';
-import { useUserContext } from '@/app/functions/contexts/UserContext';
+import { useAuthContext } from '@/app/functions/contexts/AuthContext';
 
 export const Header: FC = memo(() => {
 
-  const { user } = useUserContext()
+  const { user } = useAuthContext()
   const theme = useTheme()
   
   const { isOpen, onOpen, onClose } = useDisclosure()
@@ -1032,7 +1775,8 @@ import type { Metadata } from "next";
 import { Inter } from "next/font/google";
 import { DesignProvider } from "./providers/designProvider";
 import "./globals.css";
-import { UserProvider } from "./functions/contexts/UserContext";
+import { AuthProvider } from "./functions/contexts/AuthContext";
+import { AuthGuard } from "./features/auth/components/AuthGuard";
 
 const inter = Inter({ subsets: ["latin"] });
 
@@ -1049,11 +1793,13 @@ export default function RootLayout({
   return (
     <html lang="en">
       <body className={inter.className}>
-        <UserProvider>
-          <DesignProvider>
-            {children}
-          </DesignProvider>
-        </UserProvider>
+        <AuthProvider>
+          <AuthGuard>
+            <DesignProvider>
+              {children}
+            </DesignProvider>
+          </AuthGuard>
+        </AuthProvider>
       </body>
     </html>
   );
@@ -1062,46 +1808,49 @@ export default function RootLayout({
 
 ```
 
-### app/functions/contexts/UserContext.tsx
+### app/functions/contexts/AuthContext.tsx
 
 ```
 "use client"
 
-import { onAuthStateChanged } from "firebase/auth";
+import { GoogleAuthProvider, TwitterAuthProvider, User, createUserWithEmailAndPassword, onAuthStateChanged, signInWithEmailAndPassword, signInWithPopup } from "firebase/auth";
 import { ReactNode, createContext, useContext, useEffect, useState } from "react";
 import { auth } from "../libs/firebase";
 import axios from "axios";
 import { API } from "../constants/apis";
 import { useRouter } from "next/navigation";
 
-type UserProviderProps = {
+type AuthProviderProps = {
   children: ReactNode
 }
 
-type User = {
-  email: string | null,
-  uid: string | null,
-}
-
-type UserContextType = {
+type AuthContextType = {
   user: User | null,
   setUser: React.Dispatch<React.SetStateAction<User | null>>,
   loading: boolean
+  login: (method: LoginMethod, credentials?: { email: string; password: string }) => Promise<void>
+  authRegister: (email: string, password: string, userName: string) => Promise<void>
+  logout: () => Promise<void>
 }
 
-const defaultContextData = {
-  user: null,
-  setUser: () => {},
-  loading: false
-}
+type LoginMethod = 'email' | 'google' | 'twitter';
 
-const UserContext = createContext<UserContextType>(defaultContextData)
+const AuthContext = createContext<AuthContextType | undefined>(undefined)
 
 // 状態をグローバルに管理
-export function UserProvider({children}: UserProviderProps) {
+export function AuthProvider({children}: AuthProviderProps) {
   const [user, setUser] = useState<User | null>(null)
   const [loading, setLoading] = useState<boolean>(true)
+  const [error, setError] = useState<string | null>(null)
   const router = useRouter()
+
+  useEffect(() => {
+    const unsubscribe = onAuthStateChanged(auth, (user) => {
+      setUser(user)
+    })
+
+    return () => unsubscribe()
+  })
 
   // ログインの状態をチェック
   useEffect(() => {
@@ -1109,47 +1858,107 @@ export function UserProvider({children}: UserProviderProps) {
       try {
         const url = API.session
         const response = await axios.get(url, { withCredentials: true })
-        console.log("コンテキスト発火", response)
         if(response.data.uid) {
-          setUser({email: response.data.email, uid: response.data.uid})
+          setUser(auth.currentUser)
         }
       } catch(error) {
         setUser(null)
-        router.push("/auth/login")
+        setError("セッションの確認中にエラーが発生しました。")
       } finally {
         setLoading(false)
       }
     }
     checkSession()
 
-    // firebaseの認証状態の変化を監視
-    // const unsubscribe = auth.onAuthStateChanged(async (firebaseUser) => {
-    //   if (firebaseUser) {
-    //     const idToken = await firebaseUser.getIdToken();
-    //     await axios.post("/login", { idToken }, { withCredentials: true });
-    //     setUser({ email: firebaseUser.email, uid: firebaseUser.uid });
-    //   } else {
-    //     setUser(null);
-    //     router.push("/auth/login")
-    //   }
-    //   setLoading(false);
-    // });
-    // // リスナーを解除
-    // return () => unsubscribe()
-
   }, [router])
 
+  const login = async (method: LoginMethod, credentials?: { email: string; password: string }) => {
+    setError(null);
+    setLoading(true)
+    try {
+      let userCredential;
+      switch (method) {
+        case 'email':
+          if (!credentials) throw new Error('Email and password are required');
+          userCredential = await signInWithEmailAndPassword(auth, credentials.email, credentials.password);
+          break;
+        case 'google':
+          userCredential = await signInWithPopup(auth, new GoogleAuthProvider());
+          break;
+        case 'twitter':
+          userCredential = await signInWithPopup(auth, new TwitterAuthProvider());
+          break;
+        default:
+          throw new Error('Invalid login method');
+      }
+  
+      const token = await userCredential.user.getIdToken();
+      await axios.post(API.login, {}, {
+        headers: { 
+          'Content-Type': 'application/json',
+          'Authorization': `Bearer ${token}`
+        },
+        withCredentials: true
+      });
+      router.push('/');
+    } catch (error: any) {
+      setError(error.message);
+      alert(error.message)
+    } finally {
+      setLoading(false)
+    }
+  }
+
+  const logout = async () => {
+    setLoading(true)
+    try {
+      await auth.signOut();
+      await axios.post(API.logout, {}, { withCredentials: true });
+      router.push('/auth/login');
+    } catch (error: any) {
+      setError(error.message);
+    } finally {
+      setLoading(false)
+    }
+  }
+
+  const authRegister = async (email: string, password: string, userName: string) => {
+    setError(null);
+    setLoading(true)
+    try {
+      await axios.post(API.userRegister, {
+        name: userName,
+        email, 
+        password
+      });
+      const userCredential = await createUserWithEmailAndPassword(auth, email, password);
+      const user = userCredential.user;
+      router.push("/");
+    } catch (error: any) {
+      setError(error.message);
+      if(error.code === "auth/email-already-in-use") {
+        alert("このメールアドレスはすでに使用されています。")
+      } else {
+        alert(error.message)
+      }
+    }
+  }
+
   return (
-    <UserContext.Provider 
-      value={{ user, setUser, loading }}
+    <AuthContext.Provider 
+      value={{ user, setUser, loading, login, authRegister, logout }}
     >
       {children}
-    </UserContext.Provider>
+    </AuthContext.Provider>
   )
 }
 
-export function useUserContext() {
-  return useContext(UserContext)
+export function useAuthContext() {
+  const context = useContext(AuthContext)
+  if (context === undefined) {
+    throw new Error('useAuthContext must be used within an AuthProvider')
+  }
+  return context
 }
 
 
@@ -1165,7 +1974,9 @@ export const API = {
   userRegister: `${apiUrl}/user`,
   login: `${apiUrl}/login`,
   logout: `${apiUrl}/logout`,
-  session: `${apiUrl}/session`
+  session: `${apiUrl}/session`,
+  aiCoach: `${apiUrl}/ai_coach`,
+  workout: `${apiUrl}/workout`,
 }
 
 ```

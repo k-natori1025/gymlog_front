@@ -1,26 +1,13 @@
 import React, { FC, memo } from 'react'
 import { Button, Text } from '@chakra-ui/react';
 import { IoMdLogOut } from "react-icons/io";
-import { auth } from '@/app/functions/libs/firebase';
-import axios from 'axios';
-import { useRouter } from 'next/navigation';
-import { API } from '@/app/functions/constants/apis';
+import { useAuthContext } from '@/app/functions/contexts/AuthContext';
 
 
 const LogoutButton:FC = memo(() => {
-
-  const router = useRouter()
+  const { logout } = useAuthContext()
   const handleLogout = async() => {
-    try {
-      await auth.signOut();
-      const url = API.logout
-      await axios.post(url, {}, {
-        withCredentials: true
-      });
-      router.push('/auth/login');
-    } catch (error) {
-      console.error('Logout error:', error);
-    }
+    await logout()
   }
   return (
     <Button colorScheme='white' variant='ghost' onClick={handleLogout}>

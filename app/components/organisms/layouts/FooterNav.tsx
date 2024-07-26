@@ -1,10 +1,10 @@
 import { Flex, Text, useTheme } from '@chakra-ui/react'
 import React, { FC, memo } from 'react'
 import LogoutButton from '../../atoms/button/LogoutButton'
-import { useUserContext } from '@/app/functions/contexts/UserContext'
+import { useAuthContext } from '@/app/functions/contexts/AuthContext'
 
 export const FooterNav: FC = memo(() => {
-  const { user } = useUserContext()
+  const { user } = useAuthContext()
   const theme = useTheme()
 
   return (

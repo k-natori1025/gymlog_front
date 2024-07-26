@@ -6,11 +6,11 @@ import { useTheme } from '@chakra-ui/react';
 import MenuIconButton from '../../atoms/button/MenuIconButton';
 import MenuDrawer from '../../molecules/MenuDrawer';
 import LogoutButton from '../../atoms/button/LogoutButton';
-import { useUserContext } from '@/app/functions/contexts/UserContext';
+import { useAuthContext } from '@/app/functions/contexts/AuthContext';
 
 export const Header: FC = memo(() => {
 
-  const { user } = useUserContext()
+  const { user } = useAuthContext()
   const theme = useTheme()
   
   const { isOpen, onOpen, onClose } = useDisclosure()

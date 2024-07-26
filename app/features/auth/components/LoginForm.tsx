@@ -2,13 +2,11 @@
 
 import React, { FC, memo, useState } from 'react'
 import { PrimaryButton } from '@/app/components/atoms/button/PrimaryButton'
-import { Box, Button, Divider, FormControl, FormHelperText, Heading, Input, InputGroup, InputRightElement, Link, Stack, Text } from '@chakra-ui/react'
+import { AbsoluteCenter, Box, Button, Divider, FormControl, FormHelperText, Heading, Input, InputGroup, InputRightElement, Link, Stack, Text } from '@chakra-ui/react'
 import { SubmitHandler, useForm } from 'react-hook-form'
-import { signInWithEmailAndPassword } from 'firebase/auth'
-import { auth } from '@/app/functions/libs/firebase'
-import { useRouter } from 'next/navigation'
-import { API } from '@/app/functions/constants/apis'
-import axios from 'axios'
+import { LoadingSpinner } from '@/app/components/atoms/button/LoadingSpinner'
+import { SocialLoginButton } from './SocialLoginButton'
+import { useAuthContext } from '@/app/functions/contexts/AuthContext'
 
 type Inputs = {
   userName: string
@@ -19,8 +17,7 @@ type Inputs = {
 export const LoginForm: FC = memo(() => {
   
   const [show, setShow] = useState(false)
-
-  const router = useRouter()
+  const { login, loading } = useAuthContext()
   
   const handleClick = () => {
     setShow(!show)
@@ -33,34 +30,17 @@ export const LoginForm: FC = memo(() => {
   } = useForm<Inputs>()
 
   const onSubmit: SubmitHandler<Inputs> = async(data) => {
-    try {
-      const userCredential = await signInWithEmailAndPassword(auth, data.email, data.password)
-      const token = await userCredential.user.getIdToken();
-      const url = API.login
-      await axios.post(url, {}, {
-        headers: { 
-          'Content-Type': 'application/json',
-          'Authorization': `Bearer ${token}`
-        },
-        withCredentials: true
-      })
-      router.push('/')
-    } catch(error: any) {
-      if(error.code === "auth/invalid-credential") {
-        alert("メールアドレスもしくはパスワードが間違っています。")
-      } else {
-        alert(error.message)
-        console.log("Logged in Error", error)
-      }
-    }
+    await login('email', { email: data.email, password: data.password });
   }
+  const handleGoogleLogin = () => login('google');
+  const handleTwitterLogin = () => login('twitter');
 
   return (
-    <Box bg="white" w="md" p={6} borderRadius="lg" shadow="xl">
+    <>
+      <Box bg="white" w="md" p={6} borderRadius="lg" shadow="xl">
         <Heading as="h2" size="lg" textAlign="center">ログイン</Heading>
-        <Divider my={4} />
         <FormControl as="form" onSubmit={handleSubmit(onSubmit)}>
-          <Stack spacing={6} py={4} px={6}>
+          <Stack spacing={6}>
             <Box> 
               <Text fontSize="sm">メールアドレス</Text>
               <Input 
@@ -107,14 +87,37 @@ export const LoginForm: FC = memo(() => {
                 </Text>
               )}     
             </Box>
-            <PrimaryButton type="submit">ユーザー登録</PrimaryButton>
+            <PrimaryButton type="submit">ログイン</PrimaryButton>
           </Stack>
         </FormControl>
+        <Box position='relative' py={6} >
+          <Divider borderWidth={1} />
+          <AbsoluteCenter bg='white' px='4'>
+            または
+          </AbsoluteCenter>
+        </Box>
+        <Stack spacing={4}>
+          <SocialLoginButton
+            provider="google"
+            onClick={handleGoogleLogin}
+          >
+            Googleでログイン
+          </SocialLoginButton>
+          <SocialLoginButton
+            provider="twitter"
+            onClick={handleTwitterLogin}
+          >
+            Twitterでログイン
+          </SocialLoginButton>
+        </Stack>
         <Box textAlign="center">
           <Text>まだユーザー登録をしていませんか？</Text>
           <Link href="/auth/register" color="blue.300">新規登録ページへ</Link>
         </Box>
       </Box>
+      {loading&& <LoadingSpinner />}
+    </>
+    
   )
 })
 

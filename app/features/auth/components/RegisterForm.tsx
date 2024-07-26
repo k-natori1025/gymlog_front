@@ -2,13 +2,10 @@
 
 import React, { FC, memo, useState } from 'react'
 import { PrimaryButton } from '@/app/components/atoms/button/PrimaryButton'
-import { Box, Button, Divider, FormControl, FormHelperText, Heading, Input, InputGroup, InputRightElement, Link, Stack, Text } from '@chakra-ui/react'
+import { Box, Button, FormControl, FormHelperText, Heading, Input, InputGroup, InputRightElement, Link, Stack, Text } from '@chakra-ui/react'
 import { SubmitHandler, useForm } from 'react-hook-form'
-import { createUserWithEmailAndPassword } from 'firebase/auth'
-import { auth } from '@/app/functions/libs/firebase'
-import axios from 'axios'
-import { API } from '@/app/functions/constants/apis'
-import { useRouter } from 'next/navigation'
+import { useAuthContext } from '@/app/functions/contexts/AuthContext'
+import { LoadingSpinner } from '@/app/components/atoms/button/LoadingSpinner'
 
 type Inputs = {
   userName: string
@@ -19,10 +16,7 @@ type Inputs = {
 export const RegisterForm: FC = memo(() => {
   
   const [show, setShow] = useState(false)
-  const [userName, setUserName] = useState("")
-  const [email, setEmail] = useState("")
-  const [password, setPassword] = useState("")
-  const router = useRouter()
+  const { authRegister, loading } = useAuthContext()
   const handleClick = () => {
     setShow(!show)
   }
@@ -34,32 +28,18 @@ export const RegisterForm: FC = memo(() => {
   } = useForm<Inputs>()
 
   const onSubmit: SubmitHandler<Inputs> = async (data) => {
-    try {
-      const url = API.userRegister
-      const response = await axios.post(url, {
-        name: userName,
-        email,
-        password
-      })
-      console.log(response, "fastapiへのユーザー登録完了")
-      const userCredential = await createUserWithEmailAndPassword(auth, data.email, data.password)
-      const user = userCredential.user
-      console.log("firebaseへのユーザー登録完了")
-      router.push("/")
-    } catch(error: any) {
-        if(error.code === "auth/email-already-in-use") {
-          alert("このメールアドレスはすでに使用されています。")
-        } else {
-          alert(error.message)
-        }
-    }
+    await authRegister(
+      data.email, 
+      data.password,
+      data.userName,
+    )
   }
   return (
-    <Box bg="white" w="md" p={6} borderRadius="lg" shadow="xl">
+    <>
+      <Box bg="white" w="md" p={6} borderRadius="lg" shadow="xl">
         <Heading as="h2" size="lg" textAlign="center">新規登録</Heading>
-        <Divider my={4} />
         <FormControl as="form" onSubmit={handleSubmit(onSubmit)}>
-          <Stack spacing={6} py={4} px={6}>
+          <Stack spacing={6} py={4}>
             <Box>
               <Text fontSize="sm">ユーザー名</Text>
               <Input
@@ -68,7 +48,6 @@ export const RegisterForm: FC = memo(() => {
                 })} 
                 placeholder="ユーザー名" 
                 type="text"
-                onChange={(e) => {setUserName(e.target.value)}}
               />
               {errors.userName && (
                 <Text color="red.500" fontSize="sm">
@@ -88,7 +67,6 @@ export const RegisterForm: FC = memo(() => {
                 })} 
                 placeholder="メールアドレス" 
                 type="email"
-                onChange={(e) => {setEmail(e.target.value)}}
               />
               {errors.email && (
                 <Text color="red.500" fontSize="sm">
@@ -110,7 +88,6 @@ export const RegisterForm: FC = memo(() => {
                   })} 
                   placeholder="パスワード" 
                   type={show ? 'text' : 'password'}
-                  onChange={(e) => {setPassword(e.target.value)}}
                 />
                 <InputRightElement width='4.5rem'>
                   <Button h='1.75rem' size='sm' onClick={handleClick}>
@@ -132,6 +109,8 @@ export const RegisterForm: FC = memo(() => {
           <Link href="/auth/login" color="blue.300">ログインページへ</Link>
         </Box>
       </Box>
+      {loading&& <LoadingSpinner />}
+    </>
   )
 })
 
