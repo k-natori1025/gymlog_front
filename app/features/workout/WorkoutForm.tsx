@@ -1,12 +1,13 @@
 "use client"
 
-import React, { FC, memo, useEffect, useState } from 'react'
-import { Box, Button, FormControl, FormLabel, NumberDecrementStepper, NumberIncrementStepper, NumberInput, NumberInputField, NumberInputStepper, Select, VStack } from '@chakra-ui/react'
+import React, { FC, memo, useCallback, useEffect, useState } from 'react'
+import { Box, FormControl, FormLabel, Select, VStack } from '@chakra-ui/react'
 import { Controller, SubmitHandler, useForm } from 'react-hook-form'
-import axios from 'axios'
 import { API } from '@/app/functions/constants/apis'
 import { PrimaryButton } from '@/app/components/atoms/button/PrimaryButton'
 import { NumberSelector } from '@/app/components/molecules/NumberSelector'
+import { useApi } from '@/app/functions/hooks/useApi'
+import { useCustomToast } from '@/app/functions/hooks/useCustomToast'
 
 
 interface MuscleGroup {
@@ -33,49 +34,57 @@ export const WorkoutForm: FC = memo(() => {
   const [muscleGroups, setMuscleGroups] = useState<MuscleGroup[]>([])
   const [exercises, setExercises] = useState<Exercise[]>([]);
   const [isLoading, setIsLoading] = useState<boolean>(false);
+  const { showToast } = useCustomToast()
 
   const { control, handleSubmit, watch } = useForm<WorkoutFormData>()
 
+  const apiClient = useApi()
+
   const selectedMuscleGroupId = watch('muscle_group_id')
-
-  useEffect(() => {
-    // Fetch muscle groups
-    const fetchMuscleGroups = async () => {
-      try {
-        const response = await axios.get(API.muscleGroups)
-        setMuscleGroups(response.data)
-      } catch (error) {
-        console.error("Error fetching muscle groups:", error)
-      }      
-    };
-    fetchMuscleGroups();
-  }, []);
-
-  useEffect(() => {
-    // Fetch exercises when a muscle group is selected
-    const fetchExercises = async () => {
-      if(selectedMuscleGroupId) {
-        try {
-          const response = await axios.get(`${API.exercises}?muscle_group_id=${selectedMuscleGroupId}`)
-          setExercises(response.data)
-        } catch (error) {
-          console.error("Error fetching exercises:", error)
-        }
-      } else {
-        setExercises([])
-      }
+  
+  // Fetch muscle groups
+  const fetchMuscleGroups = useCallback(async () => {
+    setIsLoading(true)
+    try {
+      const response = await apiClient.get(API.muscleGroups)
+      setMuscleGroups(response.data)
+    } catch (error) {
+      console.error("Error fetching muscle groups:", error)
+    } finally {
+      setIsLoading(false)
     }
+  }, [apiClient])
+
+  // Fetch exercises when a muscle group is selected
+  const fetchExercises = useCallback(async () => {
+    if(selectedMuscleGroupId) {
+      try {
+        const response = await apiClient.get(`${API.exercises}?muscle_group_id=${selectedMuscleGroupId}`)
+        setExercises(response.data)
+      } catch (error) {
+        console.error("Error fetching exercises:", error)
+      }
+    } else {
+      setExercises([])
+    }
+  }, [apiClient, selectedMuscleGroupId])
+
+  useEffect(() => {
+    fetchMuscleGroups()
+  }, [fetchMuscleGroups])
+
+  useEffect(() => {
     fetchExercises()
-  }, [selectedMuscleGroupId]);
+  }, [selectedMuscleGroupId, fetchExercises]);
 
   const onSubmit = async (data: WorkoutFormData) => {
     setIsLoading(true)
     try {
-      await axios.post(API.workout, data)
-      alert('Workout log saved successfully!')
+      await apiClient.post(API.workoutLog, data)
+      showToast("Success", "Workout log saved successfully!", "success")
     } catch (error) {
       console.error('Error saving workout log:', error)
-      alert('Failed to save workout log. Please try again.')
+      showToast("Error", "Failed to save workout log. Please try again.", "error")
     } finally {
       setIsLoading(false)
     }

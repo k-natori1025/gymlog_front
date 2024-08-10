@@ -9,5 +9,5 @@ export const API = {
   aiCoach: `${apiUrl}/ai_coach`,
   muscleGroups: `${apiUrl}/muscle_groups`,
   exercises: `${apiUrl}/exercises`,
-  workout: `${apiUrl}/workout`,
+  workoutLog: `${apiUrl}/workout_log`,
 }
